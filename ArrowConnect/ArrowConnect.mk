@@ -14,10 +14,11 @@ $(NAME)_SOURCES    += acnsdkc/time/time.c
 $(NAME)_SOURCES    += acnsdkc/debug.c
 $(NAME)_SOURCES    += acnsdkc/sys/mac.c
 $(NAME)_SOURCES    += acnsdkc/arrow/storage.c
+$(NAME)_SOURCES    += acnsdkc/json/telemetry.c
 
 #$(NAME)_SOURCES    += $(patsubst $(SDK_PATH)%,../acn-sdk-c/%,$(WOLF_SRC))
 
-$(warning $(NAME))
+#$(warning $(NAME))
 
 #$(warning $(wildcard ../../../libraries/acn-sdk-c/src/ntp/*.*))
 
@@ -51,7 +52,7 @@ $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/gateway_payload_sign.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/device_command.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/telemetry_api.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/gateway/info.c
-$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/json/telemetry.c
+#$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/json/telemetry.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/json/json.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/debug.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/data/property.c
