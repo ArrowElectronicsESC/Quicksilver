@@ -1,0 +1,3 @@
+NAME :=App_RGB
+
+$(NAME)_SOURCES := RGB.c
