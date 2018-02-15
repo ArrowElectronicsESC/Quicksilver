@@ -52,6 +52,7 @@ $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/gateway_payload_sign.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/device_command.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/telemetry_api.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/gateway/info.c
+$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/device/info.c
 #$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/json/telemetry.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/json/json.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/debug.c
