@@ -34,6 +34,9 @@
  *                    Constants
  ******************************************************/
 
+#define RGB_CLOCK WICED_GPIO_10
+#define RGB_DATA WICED_GPIO_8
+
 #define BUFFER_LENGTH     (2048)
 #define MAX_LINE_LENGTH  (128)
 #define MAX_HISTORY_LENGTH (20)
@@ -104,7 +107,6 @@
 
 #define RESET_PIN WICED_GPIO_14
 
-
 int wifi_connect(int argc, char *argv[]);
 int do_ntp_time(int argc, char *argv[]);
 int arrow_connect_test(int argc, char *argv[]);
@@ -118,6 +120,7 @@ int send_telemetry(int argc, char *argv[]);
 { "gateway", find_gateway_by_os, NULL, NULL, NULL, "", "does a gateway"},\
 { "telemetry", send_telemetry, 1, NULL, NULL, "", "does a telemetry"},
 
+#if 0
 static char line_buffer[MAX_LINE_LENGTH];
 static char history_buffer_storage[MAX_LINE_LENGTH * MAX_HISTORY_LENGTH];
 
@@ -125,6 +128,7 @@ static const command_t init_commands[] = {
         DIAGNOSTICS_COMMANDS
         CMD_TABLE_END
 };
+#endif
 /******************************************************
  *                   Enumerations
  ******************************************************/
@@ -166,7 +170,7 @@ static char history_buffer_storage[MAX_LINE_LENGTH * MAX_HISTORY_LENGTH];
 static wiced_ip_address_t  ping_target_ip;
 static wiced_usb_user_config_t usb_host_config;
 
-static quicksilver_data data;
+static quicksilver_data telemetryData;
 
 static wiced_i2c_device_t i2c_device_temperature =
 {
@@ -299,7 +303,7 @@ int temperature_get(int argc, char *argv[]){
 
 //    WPRINT_APP_INFO( ( "HTS221 temperature %.1f°C, %.1f°F\n", tempC, tempF ) );
 
-    data.temperature = tempC;
+    telemetryData.temperature = tempC;
 
     return 0;
 }
@@ -402,9 +406,9 @@ int accelerometer_get(int argc, char *argv[]){
 //        WPRINT_APP_INFO(("y: %.fg\t", ydataf));
 //        WPRINT_APP_INFO(("z: %.fg\n", zdataf));
 
-        data.accelerometer.x = xdataf;
-        data.accelerometer.y = ydataf;
-        data.accelerometer.z = zdataf;
+        telemetryData.accelerometer.x = xdataf;
+        telemetryData.accelerometer.y = ydataf;
+        telemetryData.accelerometer.z = zdataf;
 
     } else {
 //        WPRINT_APP_INFO(("No new XYZ data\n"));
@@ -633,6 +637,51 @@ int wifi_connect(int argc, char *argv[]) {
     return r;
 }
 
+int get_telemetry_data(void *data)
+{
+    ((quicksilver_data*)data)->humidity = 6;
+    ((quicksilver_data*)data)->temperature = 7;
+
+    return 0;
+}
+
+int rgb_handler(const char *data)
+{
+    color RGBColor = {0};
+
+    DBG("---------------------------------------------");
+    DBG("rgb_handler: %s", data);
+    DBG("---------------------------------------------");
+    JsonNode *main = json_decode(data);
+    if(main)
+    {
+        JsonNode *red_val = json_find_member(main, "red");
+        if(red_val && red_val->tag == JSON_NUMBER)
+        {
+            RGBColor.Red = (int)red_val->number_;
+        }
+        JsonNode *green_val = json_find_member(main, "green");
+        if(green_val && green_val->tag == JSON_NUMBER)
+        {
+            RGBColor.Green = (int)green_val->number_;
+        }
+        JsonNode *blue_val = json_find_member(main, "blue");
+        if(blue_val && blue_val->tag == JSON_NUMBER)
+        {
+            RGBColor.Blue = (int)blue_val->number_;
+        }
+        json_delete(main);
+
+        show_color(RGBColor);
+    }
+    else
+    {
+        DBG("json parse failed");
+    }
+
+    return 0;
+}
+
 void application_start( )
 {
     wiced_result_t result;
@@ -658,16 +707,39 @@ void application_start( )
     /* initialize SPI for ADC */
     adc_init();
 
+    /* Connect to the MQTT Service */
     arrow_mqtt_connect_routine();
 
     /* Refresh sensor data */
     update_sensor_data();
 
+//    quicksilver_data data = {0};
+//#if 1
+//    DBG("THIS IS A TEST");
+//    DBG("THIS IS A TEST please work oh please");
+//    DBG("THIS IS A TEST");
+//    DBG("THIS IS A TEST please work oh please");
+//    DBG("THIS IS A TEST please work oh please");
+//    DBG("THIS IS A TEST please work oh please");
+//    DBG("THIS IS A TEST please work oh please");
+//    DBG("THIS IS A TEST please work oh please");
+//    DBG("THIS IS A TEST please work oh please");
+//    char tmp[170];
+//    tmp[0] = 1;
+//    result = tmp[0];
+//#endif
+//#if 1
+//    add_cmd_handler("ServerToGateway_DeviceCommand", rgb_handler);
+//    //add_cmd_handler("rgb", rgb_handler);
+//
+//#endif
+//    arrow_close();
+
     while(1)
     {
         DBG("SLEEP...");
         /* Send the latest data to Arrow Connect */
-        arrow_send_telemetry_routine(&data);
+        arrow_send_telemetry_routine(&telemetryData);
 
         /* Refresh sensor data */
         update_sensor_data();
