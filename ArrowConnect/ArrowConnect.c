@@ -160,8 +160,9 @@ void application_start( )
     //console_add_cmd_table( init_commands );
     //arrow_connect_test(0,NULL);
     wifi_connect(0, NULL);
-    find_gateway_by_os(0,NULL);
-    arrow_connect_test(0,NULL);
+    arrow_initialize_routine();
+//    find_gateway_by_os(0,NULL);
+//    arrow_connect_test(0,NULL);
 
     arrow_mqtt_connect_routine();
 

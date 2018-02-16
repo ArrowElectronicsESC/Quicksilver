@@ -14,22 +14,22 @@
 //flash_mem_t mem __attribute__((section("UNINIT_FIXED_LOC")));
 
 int restore_gateway_info(arrow_gateway_t *gateway) {
-//  if ( mem.magic != (int) FLASH_MAGIC_NUMBER ) {
-//    FLASH_unlock_erase((uint32_t)&mem, sizeof(mem));
-//    return -1;
-//  }
-//  if ( utf8check(mem.gateway_hid) && strlen(mem.gateway_hid) ) {
-    //property_copy(&gateway->hid, p_const(mem.gateway_hid));
-//    DBG("--- flash load %s", mem.gateway_hid);
-//    return 0;
-//  }
-
-    gateway->hid.value = strdup("f40b47c27e980a60e173042f87ae03e1a9be3b7a");
-    //sprintf(&gateway->hid.value, "f40b47c27e980a60e173042f87ae03e1a9be3b7a");
-    gateway->hid.flags = is_dynamic;
-    DBG("gateway hid: value - %s flag: %d\n",gateway->hid.value, gateway->hid.flags);
-    //TODO(bman): Actually make this work good
-  return 0;
+////  if ( mem.magic != (int) FLASH_MAGIC_NUMBER ) {
+////    FLASH_unlock_erase((uint32_t)&mem, sizeof(mem));
+////    return -1;
+////  }
+////  if ( utf8check(mem.gateway_hid) && strlen(mem.gateway_hid) ) {
+//    //property_copy(&gateway->hid, p_const(mem.gateway_hid));
+////    DBG("--- flash load %s", mem.gateway_hid);
+////    return 0;
+////  }
+//
+//    gateway->hid.value = strdup("f40b47c27e980a60e173042f87ae03e1a9be3b7a");
+//    //sprintf(&gateway->hid.value, "f40b47c27e980a60e173042f87ae03e1a9be3b7a");
+//    gateway->hid.flags = is_dynamic;
+//    DBG("gateway hid: value - %s flag: %d\n",gateway->hid.value, gateway->hid.flags);
+//    //TODO(bman): Actually make this work good
+  return -1;
 }
 
 void save_gateway_info(const arrow_gateway_t *gateway) {
