@@ -1,29 +1,23 @@
 #ifndef ACN_SDK_C_PRIVATE_H_
 #define ACN_SDK_C_PRIVATE_H_
 
-
-//#define DEFAULT_API_KEY             "abc"
-//#define DEFAULT_SECRET_KEY          "xyz"
-#define DEFAULT_API_KEY             "3dedf2dac00d395ffd4c67e4394f24bc932218aeaecae87a6fb80ec0de86a835"
-#define DEFAULT_SECRET_KEY          "9Jzuizwk6f64PkOn8gzV11wL14yb+f8iaol3s1v4IJo="
-//#define DEV_ENV
-//#define HTTP_DEBUG
-
-#define DEFAULT_WIFI_SSID           "HTC6545LVW 51 a9"
-#define DEFAULT_WIFI_PASS           "9408401SM!"
-#define DEFAULT_WIFI_SEC            0x00040003
+/* Application */                   /* TODO: Update these keys to the "Staging Area" keys for Quicksilver */
+#define DEFAULT_API_KEY             "96462710f86616894ba92b8f8f046bd3259429ecea0dc65ae5be917cae2a6388"
+#define DEFAULT_SECRET_KEY          "/l5jun1vAJ7KQFGP2d6HsuMfX0NP5KrCjQ9+oYaZpkM="
 
 /* gateway */
-#define GATEWAY_UID_PREFIX          "QCA"
-#define GATEWAY_NAME                "NewGateWay"
-#define GATEWAY_OS                  "Windows10"
+#define GATEWAY_UID_PREFIX          "QS"
+#define GATEWAY_NAME                "QuicksilverGateway"
+#define GATEWAY_OS                  "WICED_RTOS"
+
 /* gateway firmware */
-#define GATEWAY_SOFTWARE_NAME       "Connectin"
-#define GATEWAY_SOFTWARE_VERSION    "2.1"
+#define GATEWAY_SOFTWARE_NAME       "QsEval"
+#define GATEWAY_SOFTWARE_VERSION    "1.0"
 
 /* device */
-#define DEVICE_NAME                 "NewDevice"
-#define DEVICE_TYPE                 "QuickSilver"
-#define DEVICE_UID_SUFFIX           "devkit"
+#define DEVICE_NAME                 "QuicksilverDevice"
+#define DEVICE_TYPE                 "QuickSilverEvalKit"
+#define DEVICE_UID_PREFIX           "Qs-device"
+#define DEVICE_UID_SUFFIX           "device"
 
 #endif
