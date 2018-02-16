@@ -37,6 +37,7 @@ $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/gateway.c
 #$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/request.c //no existy
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/sign.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/device/device.c
+$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/device/info.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/gateway/gateway.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/api/json/parse.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/utf8.c
