@@ -618,7 +618,7 @@ wiced_result_t rgb_init( void )
     return WICED_SUCCESS;
 }
 
-wiced_result_t update_sensor_data(void)
+wiced_result_t update_sensor_data(void * data)
 {
     accelerometer_get(0, NULL);
     temperature_get(0, NULL);
@@ -695,7 +695,7 @@ void application_start( )
     /* Connect to Wi-Fi */
     wifi_connect(0, NULL);
 
-    /* Register the Quicksilver board as both a gateway and device */
+    /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
     arrow_initialize_routine();
 
     /* probe for temperature device */
@@ -729,7 +729,6 @@ void application_start( )
 //    result = tmp[0];
 //#endif
 //#if 1
-//    add_cmd_handler("ServerToGateway_DeviceCommand", rgb_handler);
 //    //add_cmd_handler("rgb", rgb_handler);
 //
 //#endif
@@ -739,10 +738,10 @@ void application_start( )
     {
         DBG("SLEEP...");
         /* Send the latest data to Arrow Connect */
-        arrow_send_telemetry_routine(&telemetryData);
+        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
 
         /* Refresh sensor data */
-        update_sensor_data();
+//        update_sensor_data();
 
         /* Wait for 100ms */
         wiced_rtos_delay_milliseconds(100);
