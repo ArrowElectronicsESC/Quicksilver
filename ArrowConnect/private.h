@@ -4,8 +4,8 @@
 
 //#define DEFAULT_API_KEY             "abc"
 //#define DEFAULT_SECRET_KEY          "xyz"
-#define DEFAULT_API_KEY             "96462710f86616894ba92b8f8f046bd3259429ecea0dc65ae5be917cae2a6388"
-#define DEFAULT_SECRET_KEY          "/l5jun1vAJ7KQFGP2d6HsuMfX0NP5KrCjQ9+oYaZpkM="
+#define DEFAULT_API_KEY             "55297d4191524e661ac66db4ad00456c3f7e4fe48978fe67b6ddc1f3ffa580f6"
+#define DEFAULT_SECRET_KEY          "KSkxK1J4I3djxjvxYxIs1me7zzvv4vxjuc/Yhex8yIk="
 //#define DEV_ENV
 //#define HTTP_DEBUG
 
@@ -15,15 +15,15 @@
 
 /* gateway */
 #define GATEWAY_UID_PREFIX          "QCA"
-#define GATEWAY_NAME                "NewGateWay"
-#define GATEWAY_OS                  "Windows10"
+#define GATEWAY_NAME                "SuchGatewayVeryIOT"
+#define GATEWAY_OS                  "Windows95"
 /* gateway firmware */
-#define GATEWAY_SOFTWARE_NAME       "Connectin"
-#define GATEWAY_SOFTWARE_VERSION    "2.1"
+#define GATEWAY_SOFTWARE_NAME       "MicrosoftPaint"
+#define GATEWAY_SOFTWARE_VERSION    "3.14"
 
 /* device */
-#define DEVICE_NAME                 "NewDevice"
-#define DEVICE_TYPE                 "QuickSilver"
+#define DEVICE_NAME                 "QuicksilverDevice"
+#define DEVICE_TYPE                 "QuicksilverAsset"
 #define DEVICE_UID_SUFFIX           "devkit"
 
 #endif

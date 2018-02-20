@@ -3,6 +3,7 @@
 #include "wiced.h"
 #include "wiced_tls.h"
 #include "command_console.h"
+#include "ArrowConnect.h"
 
 #include "quicksilver.h"
 
@@ -34,14 +35,6 @@
 #define MAX_LINE_LENGTH  (128)
 #define MAX_HISTORY_LENGTH (20)
 #define MAX_NUM_COMMAND_TABLE  (8)
-
-typedef struct color
-{
-    unsigned char Red;
-    unsigned char Green;
-    unsigned char Blue;
-} color;
-
 
 int wifi_connect(int argc, char *argv[]);
 int do_ntp_time(int argc, char *argv[]);
@@ -264,29 +257,25 @@ void application_start( )
 
     quicksilver_data data = {0};
 #if 1
-    DBG("THIS IS A TEST");
-    DBG("THIS IS A TEST please work oh please");
-    DBG("THIS IS A TEST");
-    DBG("THIS IS A TEST please work oh please");
-    DBG("THIS IS A TEST please work oh please");
-    DBG("THIS IS A TEST please work oh please");
-    DBG("THIS IS A TEST please work oh please");
-    DBG("THIS IS A TEST please work oh please");
-    DBG("THIS IS A TEST please work oh please");
+
     char tmp[170];
     tmp[0] = 1;
     result = tmp[0];
 #endif
-#if 1
-    add_cmd_handler("ServerToGateway_DeviceCommand", rgb_handler);
-    //add_cmd_handler("rgb", rgb_handler);
 
+    //add_cmd_handler("testhandler", testhandler);
+    add_cmd_handler("rgb", rgb_handler);
+    //add_state("rgbValues","[123,255,45]");
+    //arrow_post_state_request(current_device());
+    //arrow_post_state_update(current_device());
     arrow_mqtt_send_telemetry_routine(get_telemetry_data, &data);
-#endif
+
     arrow_close();
     while(1)
     {
         DBG("sleeping...");
         wiced_rtos_delay_milliseconds(1000);
     }
+
+
 }

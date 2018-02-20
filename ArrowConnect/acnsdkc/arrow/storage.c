@@ -24,7 +24,8 @@ int restore_gateway_info(arrow_gateway_t *gateway) {
 //    return 0;
 //  }
 
-    gateway->hid.value = strdup("f40b47c27e980a60e173042f87ae03e1a9be3b7a");
+    //gateway->hid.value = strdup("f40b47c27e980a60e173042f87ae03e1a9be3b7a");
+    gateway->hid.value = strdup("38057c7e0af2e0357f6ff30f98d270684137d8c6");
     //sprintf(&gateway->hid.value, "f40b47c27e980a60e173042f87ae03e1a9be3b7a");
     gateway->hid.flags = is_dynamic;
     DBG("gateway hid: value - %s flag: %d\n",gateway->hid.value, gateway->hid.flags);
