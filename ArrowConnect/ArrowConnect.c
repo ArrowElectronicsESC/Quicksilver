@@ -3,6 +3,7 @@
 #include "wiced.h"
 #include "wiced_tls.h"
 #include "command_console.h"
+#include "ArrowConnect.h"
 
 #include "quicksilver.h"
 
@@ -137,12 +138,12 @@ static const command_t init_commands[] = {
  *                 Type Definitions
  ******************************************************/
 
-typedef struct color
-{
-    unsigned char Red;
-    unsigned char Green;
-    unsigned char Blue;
-} color;
+//typedef struct color
+//{
+//    unsigned char Red;
+//    unsigned char Green;
+//    unsigned char Blue;
+//} color;
 
 /******************************************************
  *                    Structures
@@ -622,6 +623,8 @@ wiced_result_t update_sensor_data(void * data)
 {
     accelerometer_get(0, NULL);
     temperature_get(0, NULL);
+
+    return WICED_SUCCESS;
 }
 
 int do_ntp_time(int argc, char *argv[])
@@ -710,40 +713,35 @@ void application_start( )
     /* Connect to the MQTT Service */
     arrow_mqtt_connect_routine();
 
-    /* Refresh sensor data */
-    update_sensor_data();
+    quicksilver_data data = {0};
+#if 1
 
-//    quicksilver_data data = {0};
-//#if 1
-//    DBG("THIS IS A TEST");
-//    DBG("THIS IS A TEST please work oh please");
-//    DBG("THIS IS A TEST");
-//    DBG("THIS IS A TEST please work oh please");
-//    DBG("THIS IS A TEST please work oh please");
-//    DBG("THIS IS A TEST please work oh please");
-//    DBG("THIS IS A TEST please work oh please");
-//    DBG("THIS IS A TEST please work oh please");
-//    DBG("THIS IS A TEST please work oh please");
-//    char tmp[170];
-//    tmp[0] = 1;
-//    result = tmp[0];
-//#endif
-//#if 1
-//    //add_cmd_handler("rgb", rgb_handler);
-//
-//#endif
+    char tmp[170];
+    tmp[0] = 1;
+    result = tmp[0];
+#endif
+
+    //add_cmd_handler("testhandler", testhandler);
+    add_cmd_handler("rgb", rgb_handler);
+    //add_state("rgbValues","[123,255,45]");
+    //arrow_post_state_request(current_device());
+    //arrow_post_state_update(current_device());
+//    arrow_mqtt_send_telemetry_routine(get_telemetry_data, &data);
+
 //    arrow_close();
-
     while(1)
     {
         DBG("SLEEP...");
         /* Send the latest data to Arrow Connect */
         arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+//        arrow_send_telemetry_routine(&telemetryData);
 
         /* Refresh sensor data */
-//        update_sensor_data();
+//        update_sensor_data(NULL);
 
         /* Wait for 100ms */
         wiced_rtos_delay_milliseconds(100);
     }
+
+
 }

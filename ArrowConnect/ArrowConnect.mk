@@ -14,17 +14,14 @@ $(NAME)_SOURCES    += acnsdkc/time/time.c
 $(NAME)_SOURCES    += acnsdkc/debug.c
 $(NAME)_SOURCES    += acnsdkc/sys/mac.c
 $(NAME)_SOURCES    += acnsdkc/arrow/storage.c
+$(NAME)_SOURCES    += acnsdkc/arrow/state.c
 $(NAME)_SOURCES    += acnsdkc/json/telemetry.c
 
 #$(NAME)_SOURCES    += $(patsubst $(SDK_PATH)%,../acn-sdk-c/%,$(WOLF_SRC))
 
-#$(warning $(NAME))
-
-#$(warning $(wildcard ../../../libraries/acn-sdk-c/src/ntp/*.*))
 
 
 #___________________________________________
-#$(NAME)_SOURCES    += $(wildcard ../../../libraries/acn-sdk-c/src/ntp/*.c)
 $(NAME)_SOURCES    += $(SDK_PATH)/src/ntp/client.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/ntp/ntp.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/time/watchdog_weak.c
