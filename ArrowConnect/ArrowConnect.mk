@@ -17,6 +17,9 @@ $(NAME)_SOURCES    += acnsdkc/arrow/storage.c
 $(NAME)_SOURCES    += acnsdkc/arrow/state.c
 $(NAME)_SOURCES    += acnsdkc/json/telemetry.c
 
+$(NAME)_SOURCES    += Drivers/Sensors/LIS2DH12/lis2dh12.c
+$(NAME)_SOURCES    += Drivers/Sensors/HTS221/hts221.c
+
 #$(NAME)_SOURCES    += $(patsubst $(SDK_PATH)%,../acn-sdk-c/%,$(WOLF_SRC))
 
 
@@ -125,7 +128,7 @@ $(NAME)_INCLUDES += ./acnsdkc
 $(info $($(NAME)_INCLUDES))
 
 $(NAME)_DEFINES    += DEBUG
-$(NAME)_DEFINES    += DEBUG_WOLFSSL
+#$(NAME)_DEFINES    += DEBUG_WOLFSSL
 $(NAME)_DEFINES    += HTTP_DEBUG
 $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
