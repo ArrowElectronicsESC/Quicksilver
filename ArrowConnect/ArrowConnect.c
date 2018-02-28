@@ -229,6 +229,11 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
+static color ledColor = {
+        .Red = 0,
+        .Green = 0,
+        .Blue = 0,
+};
 
 #define DIAGNOSTICS_COMMANDS \
 { "config",  wifi_config,  1, NULL, NULL, "<STA name and pass key>", "adds AP settings to DCT" }, \
@@ -318,7 +323,7 @@ int temperature_get(int argc, char *argv[]){
       humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity.i16bit);
       if (humidity_perc < 0) humidity_perc = 0;
       if (humidity_perc > 100) humidity_perc = 100;
-      DBG("Humidity [%%]:%3.2f\r\n", humidity_perc);
+//      DBG("Humidity [%%]:%3.2f\r\n", humidity_perc);
     }
     if (reg.status_reg.t_da)
     {
@@ -328,7 +333,7 @@ int temperature_get(int argc, char *argv[]){
       hts221_read_reg(&hts_ctx, HTS221_TEMP_OUT_L, data_raw_temperature.u8bit, 2);
       data_raw_temperature.i16bit =(data_raw_temperature.u8bit[1]<<8 | data_raw_temperature.u8bit[0]);
       temperature_degC = linear_interpolation(&lin_temp, data_raw_temperature.i16bit);
-      DBG("Temperature [degC]:%6.2f\r\n", temperature_degC );
+//      DBG("Temperature [degC]:%6.2f\r\n", temperature_degC );
     }
 
     telemetryData.temperature = temperature_degC;
@@ -707,6 +712,7 @@ void application_start( )
 
     /* Initialize the RGB */
     rgb_init();
+    show_color(ledColor);
 
     /* Connect to Wi-Fi */
     wifi_connect(0, NULL);
