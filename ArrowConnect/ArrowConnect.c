@@ -634,6 +634,8 @@ wiced_result_t rgb_init( void )
     wiced_gpio_output_high( WICED_RGB_CLOCK );
     wiced_gpio_output_high( WICED_RGB_DATA );
 
+    show_color(ledColor);
+
     return WICED_SUCCESS;
 }
 
@@ -712,7 +714,6 @@ void application_start( )
 
     /* Initialize the RGB */
     rgb_init();
-    show_color(ledColor);
 
     /* Connect to Wi-Fi */
     wifi_connect(0, NULL);
