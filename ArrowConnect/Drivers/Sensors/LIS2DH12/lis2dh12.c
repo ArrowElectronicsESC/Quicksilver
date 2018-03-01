@@ -625,7 +625,6 @@ int32_t lis2dh12_acceleration_raw_get(lis2dh12_ctx_t *ctx, uint8_t *buff)
   */
 int32_t lis2dh12_device_id_get(lis2dh12_ctx_t *ctx, uint8_t *buff)
 {
-    DBG("lis2dh12_device_id_get");
   return lis2dh12_read_reg(ctx, LIS2DH12_WHO_AM_I, buff, 1);
 }
 /**
