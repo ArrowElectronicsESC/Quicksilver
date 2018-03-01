@@ -1,8 +1,7 @@
 #ifndef ACN_SDK_C_PRIVATE_H_
 #define ACN_SDK_C_PRIVATE_H_
 
-#define __IBM__
-#define NO_EVENTS
+#define __IBM__                     /* Use IBM Watson for Data analysis*/
 
 /* Application */                   /* TODO: Update these keys to the "Staging Area" keys for Quicksilver */
 #define DEFAULT_API_KEY             "96462710f86616894ba92b8f8f046bd3259429ecea0dc65ae5be917cae2a6388"
