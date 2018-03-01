@@ -47,39 +47,6 @@
 #define MAX_HISTORY_LENGTH (20)
 #define MAX_NUM_COMMAND_TABLE  (8)
 
-#define HTS221_SLAVE_ADDR        (0x5F)
-#define HTS221_WOAMI_REG         (0x0F | 0x80)
-#define HTS221_CTRL_REG1         (0x20 | 0x80)
-#define HTS221_TEMP_OUT_L        (0x2A | 0x80)
-#define HTS221_TEMP_OUT_H        (0x2B | 0x80)
-#define HTS221_T0_DEGC_X8        (0x32 | 0x80)
-#define HTS221_T1_DEGC_X8        (0x33 | 0x80)
-#define HTS221_T1_T0_MSB         (0x35 | 0x80)
-#define HTS221_T0_OUT_L          (0x3C | 0x80)
-#define HTS221_T0_OUT_H          (0x3D | 0x80)
-#define HTS221_T1_OUT_L          (0x3E | 0x80)
-#define HTS221_T1_OUT_H          (0x3F | 0x80)
-
-#define HTS221_CTRL1_PD          (0x80)
-#define HTS221_CTRL1_BDU         (0x02)
-
-#define LIS2DH12_SLAVE_ADDR      (0x19)
-#define LIS2DH12_WOAMI_REG       (0x0F | 0x80)
-#define LIS2DH12_CTRL_REG0       (0x1E | 0x80)
-#define LIS2DH12_CTRL_REG1       (0x20 | 0x80)
-#define LIS2DH12_CTRL_REG2       (0x21 | 0x80)
-#define LIS2DH12_CTRL_REG3       (0x22 | 0x80)
-#define LIS2DH12_CTRL_REG4       (0x23 | 0x80)
-#define LIS2DH12_CTRL_REG5       (0x24 | 0x80)
-#define LIS2DH12_CTRL_REG6       (0x25 | 0x80)
-#define LIS2DH12_STATUS_REG      (0x27 | 0x80)
-#define LIS2DH12_OUT_X_L         (0x28 | 0x80)
-#define LIS2DH12_OUT_X_H         (0x29 | 0x80)
-#define LIS2DH12_OUT_Y_L         (0x2A | 0x80)
-#define LIS2DH12_OUT_Y_H         (0x2B | 0x80)
-#define LIS2DH12_OUT_Z_L         (0x2C | 0x80)
-#define LIS2DH12_OUT_Z_H         (0x2D | 0x80)
-
 #define LIS2DH12_CTRL1_ODR_400    (0x07<<4) // 400 Hz
 #define LIS2DH12_CTRL1_ODR_25     (0x03<<4) // 25 Hz
 #define LIS2DH12_CTRL1_ODR_10     (0x02<<4) // 10 Hz
@@ -112,8 +79,6 @@
 
 #define RESET_PIN WICED_GPIO_14
 
-int wifi_connect(int argc, char *argv[]);
-int do_ntp_time(int argc, char *argv[]);
 int arrow_connect_test(int argc, char *argv[]);
 int find_gateway_by_os(int argc, char *argv[]);
 int send_telemetry(int argc, char *argv[]);
@@ -164,6 +129,7 @@ wiced_result_t temperature_init( void );
 wiced_result_t accelerometer_init( void );
 wiced_result_t adc_init( void );
 wiced_result_t rgb_init( void );
+wiced_result_t probe_sensors(void);
 
 /******************************************************
  *               Variable Definitions
@@ -180,7 +146,7 @@ static quicksilver_data telemetryData;
 static wiced_i2c_device_t i2c_device_temperature =
 {
         .port = WICED_I2C_2,  //I2C_1
-        .address = HTS221_SLAVE_ADDR,
+        .address = HTS221_I2C_ADDRESS,
         .address_width = I2C_ADDRESS_WIDTH_7BIT,
         .speed_mode = I2C_STANDARD_SPEED_MODE,
 };
@@ -188,7 +154,7 @@ static wiced_i2c_device_t i2c_device_temperature =
 static wiced_i2c_device_t i2c_device_accelerometer =
 {
         .port = WICED_I2C_2,  //I2C_1
-        .address = LIS2DH12_SLAVE_ADDR,
+        .address = LIS2DH12_I2C_ADD_H,
         .address_width = I2C_ADDRESS_WIDTH_7BIT,
         .speed_mode = I2C_STANDARD_SPEED_MODE,
 };
@@ -324,6 +290,39 @@ int32_t i2c_read_hts(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t leng
     return 0;
 }
 
+wiced_result_t i2c_init(void)
+{
+    /* Initialize I2C */
+    if ( wiced_i2c_init( &i2c_device_accelerometer ) != WICED_SUCCESS )
+    {
+        return WICED_ERROR;
+    }
+
+    if ( wiced_i2c_init( &i2c_device_temperature ) != WICED_SUCCESS )
+    {
+        return WICED_ERROR;
+    }
+
+    return probe_sensors();
+}
+
+wiced_result_t probe_sensors(void)
+{
+    /* Probe I2C bus for accelerometer */
+    if( wiced_i2c_probe_device( &i2c_device_accelerometer, NUM_I2C_MESSAGE_RETRIES ) != WICED_TRUE )
+    {
+        return WICED_ERROR;
+    }
+
+    /* Probe I2C bus for temperature sensor */
+    if( wiced_i2c_probe_device( &i2c_device_temperature, NUM_I2C_MESSAGE_RETRIES ) != WICED_TRUE )
+    {
+        return WICED_ERROR;
+    }
+
+    return WICED_SUCCESS;
+}
+
 /*
  *  Function used to apply coefficient
  */
@@ -337,12 +336,6 @@ float linear_interpolation(lin_t *lin, int16_t x)
  * Holder function to get HTS221 temperature
  */
 int temperature_get(int argc, char *argv[]){
-    uint8_t wbuf[8];
-    uint8_t rbuf[8];
-    int16_t T0, T1, T2, T3, raw;
-    uint8_t val[4];
-    int32_t temperature;
-    float tempC, tempF;
 
     hts221_reg_t reg;
     hts221_status_get(&hts_ctx, &reg.status_reg);
@@ -351,23 +344,19 @@ int temperature_get(int argc, char *argv[]){
     {
       /* Read humidity data */
       memset(data_raw_humidity.u8bit, 0x00, sizeof(int16_t));
-//      hts221_humidity_raw_get(&hts_ctx, data_raw_humidity.u8bit);
       hts221_read_reg(&hts_ctx, HTS221_HUMIDITY_OUT_L, data_raw_humidity.u8bit, 2);
       data_raw_humidity.i16bit =(data_raw_humidity.u8bit[1]<<8 | data_raw_humidity.u8bit[0]);
       humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity.i16bit);
       if (humidity_perc < 0) humidity_perc = 0;
       if (humidity_perc > 100) humidity_perc = 100;
-//      DBG("Humidity [%%]:%3.2f\r\n", humidity_perc);
     }
     if (reg.status_reg.t_da)
     {
       /* Read temperature data */
       memset(data_raw_temperature.u8bit, 0x00, sizeof(int16_t));
-//      hts221_temperature_raw_get(&hts_ctx, data_raw_temperature.u8bit);
       hts221_read_reg(&hts_ctx, HTS221_TEMP_OUT_L, data_raw_temperature.u8bit, 2);
       data_raw_temperature.i16bit =(data_raw_temperature.u8bit[1]<<8 | data_raw_temperature.u8bit[0]);
       temperature_degC = linear_interpolation(&lin_temp, data_raw_temperature.i16bit);
-//      DBG("Temperature [degC]:%6.2f\r\n", temperature_degC );
     }
 
     telemetryData.temperature = temperature_degC;
@@ -380,16 +369,12 @@ int temperature_get(int argc, char *argv[]){
  * Holder function to get LIS2DH12 accelerometer
  */
 int accelerometer_get(int argc, char *argv[]){
-    uint8_t data_ready;
-    float xdataf, ydataf, zdataf;
 
     lis2dh12_reg_t reg;
     lis2dh12_status_get(&accel_ctx, &reg.status_reg);
 
     if( reg.status_reg.zyxda ) {
 
-//        i2c_read(&accel_ctx, LIS2DH12_OUT_X_L, val, 6);
-//        lis2dh12_acceleration_raw_get(&accel_ctx, data_raw_acceleration.u8bit);
         lis2dh12_read_reg(&accel_ctx, LIS2DH12_OUT_X_L, data_raw_acceleration.u8bit, 6);
 
         data_raw_acceleration.i16bit[0] =(data_raw_acceleration.u8bit[1]<<8 | data_raw_acceleration.u8bit[0]);
@@ -400,28 +385,10 @@ int accelerometer_get(int argc, char *argv[]){
         acceleration_mg[1] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[1] );
         acceleration_mg[2] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[2] );
 
-//        DBG("1 - Acceleration [mg]:%4.2f\t%4.2f\t%4.2f\r\n",
-//                acceleration_mg[0], acceleration_mg[1], acceleration_mg[2]);
-
-        // Convert to g and round
-        xdataf = (acceleration_mg[0] * 0.001);
-        ydataf = (acceleration_mg[1] * 0.001);
-        zdataf = (acceleration_mg[2] * 0.001);
-
-//        xdataf = roundf(xdata * 0.001);
-//        ydataf = roundf(ydata * 0.001);
-//        zdataf = roundf(zdata * 0.001);
-
-//        DBG("2 - Acceleration [mg]:%4.2f\t%4.2f\t%4.2f\r\n",
-//                xdataf, ydataf, zdataf);
-
         telemetryData.accelerometer.x = acceleration_mg[0];
         telemetryData.accelerometer.y = acceleration_mg[1];
         telemetryData.accelerometer.z = acceleration_mg[2];
 
-    } else {
-//        WPRINT_APP_INFO(("No new XYZ data\n"));
-        return 0;
     }
 
     return 0;
@@ -432,33 +399,10 @@ int accelerometer_get(int argc, char *argv[]){
  */
 wiced_result_t temperature_init( void )
 {
-    uint8_t wbuf[8];
-    uint8_t rbuf[8];
-
-    /* Initialize I2C */
-    if ( wiced_i2c_init( &i2c_device_temperature ) != WICED_SUCCESS )
-    {
-//        WPRINT_APP_INFO( ( "I2C Initialization Failed\n" ) );
-        return WICED_ERROR;
-    }
-
-    /*
-    *  Initialize mems driver interface
-    */
+    /* Initialize mems driver interface */
     hts_ctx.write_reg = i2c_write_hts;
     hts_ctx.read_reg = i2c_read_hts;
     hts_ctx.handle = &i2c_device_temperature;
-
-    /* Probe I2C bus for temperature sensor */
-    if( wiced_i2c_probe_device( &i2c_device_temperature, NUM_I2C_MESSAGE_RETRIES ) != WICED_TRUE )
-    {
-//        WPRINT_APP_INFO( ( "Failed to connect to temperature device; addr 0x%x\n", i2c_device_temperature.address ) );
-        return WICED_ERROR;
-    }
-
-    wbuf[0] = HTS221_WOAMI_REG;
-    wiced_i2c_write( &i2c_device_temperature, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, wbuf, 1 );
-    wiced_i2c_read( &i2c_device_temperature, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, rbuf, 1 );
 
     hts221_device_id_get(&hts_ctx, &whoamI);
     if( whoamI != HTS221_ID )
@@ -466,7 +410,6 @@ wiced_result_t temperature_init( void )
         DBG("Failed to read WHOAMI from temperature device; addr 0x%x\n", i2c_device_temperature.address);
         return WICED_ERROR;
     }
-    DBG("HTS221 device (0x%x) at address 0x%x\n", rbuf[0], i2c_device_temperature.address);
 
     /*
      *  Read humidity calibration coefficient
@@ -501,7 +444,7 @@ wiced_result_t temperature_init( void )
     /*
      * Set Output Data Rate
      */
-    hts221_data_rate_set(&hts_ctx, HTS221_ODR_1Hz);
+    hts221_data_rate_set(&hts_ctx, HTS221_ODR_12Hz5);
 
     /*
      * Device power on
@@ -515,35 +458,18 @@ wiced_result_t temperature_init( void )
  * Initializes I2C, probes for accelerometer device
  */
 wiced_result_t accelerometer_init( void )
-{
-    uint8_t wbuf[8];
-    uint8_t rbuf[8];
-
-    /* Initialize I2C */
-    if ( wiced_i2c_init( &i2c_device_accelerometer ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-
-    /*
+{    /*
     *  Initialize mems driver interface
     */
     accel_ctx.write_reg = i2c_write_accel;
     accel_ctx.read_reg = i2c_read_accel;
     accel_ctx.handle = &i2c_device_accelerometer;
 
-    /* Probe I2C bus for accelerometer */
-    if( wiced_i2c_probe_device( &i2c_device_accelerometer, NUM_I2C_MESSAGE_RETRIES ) != WICED_TRUE )
-    {
-        return WICED_ERROR;
-    }
-
     lis2dh12_device_id_get(&accel_ctx, &whoamI);
     if(whoamI != LIS2DH12_ID)
     {
         DBG("Failed to read WHOAMI from accelerometer device; addr 0x%x\n", i2c_device_accelerometer.address);
     }
-    DBG("LIS2DH12 device (0x%x) at address 0x%x\n", rbuf[0], i2c_device_accelerometer.address);
 
     /* Power-up the device */
     lis2dh12_block_data_update_set(&accel_ctx, PROPERTY_ENABLE);
@@ -681,27 +607,6 @@ int update_sensor_data(void * data)
     return 0;
 }
 
-int do_ntp_time(int argc, char *argv[])
-{
-    int status = ntp_set_time_cycle();
-    DBG("ntp status: %d \n", status);
-    return status;
-}
-
-int wifi_connect(int argc, char *argv[]) {
-    wiced_result_t r = wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
-
-    return r;
-}
-
-int get_telemetry_data(void *data)
-{
-    ((quicksilver_data*)data)->humidity = 6;
-    ((quicksilver_data*)data)->temperature = 7;
-
-    return 0;
-}
-
 int rgb_handler(const char *data)
 {
     color RGBColor = {0};
@@ -812,6 +717,9 @@ void application_start( )
 
     /* Initialize the WICED platform */
     wiced_init();
+
+    /* Initialize I2C*/
+    i2c_init();
 
     /* Initialize the RGB */
     rgb_init();
