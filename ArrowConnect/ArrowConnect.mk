@@ -6,6 +6,9 @@ include libraries/acn-sdk-c/Makefile.wolf
 
 NAME := QuickSilver_ArrowConnect
 
+$(NAME)_INCLUDES   := . \
+                      daemons/device_onboarding/
+
 $(NAME)_SOURCES    := ArrowConnect.c
 
 #$(NAME)_SOURCES    += acnsdkc/debug.c
@@ -134,7 +137,8 @@ $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
 $(NAME)_DEFINES    += ARCH_SSL
 
-WIFI_CONFIG_DCT_H  := wifi_config_dct.h
+#WIFI_CONFIG_DCT_H  := wifi_config_dct.h
 
 $(NAME)_COMPONENTS := utilities/command_console \
-					  utilities/command_console/ping
+					  utilities/command_console/ping \
+					  daemons/device_onboarding

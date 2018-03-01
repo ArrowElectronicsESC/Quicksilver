@@ -3,6 +3,7 @@
 #include "wiced.h"
 #include "wiced_tls.h"
 #include "command_console.h"
+#include "device_onboarding.h"
 #include "ArrowConnect.h"
 
 #include "quicksilver.h"
@@ -243,10 +244,43 @@ static color ledColor = {
 { "temp",  temperature_get,  0, NULL, NULL,"",  "get HTS221 temperature" }, \
 { "accel",  accelerometer_get,  0, NULL, NULL,"",  "get LIS2DH12 accelerometer" }, \
 
+static const wiced_ip_setting_t ap_ip_settings =
+{
+    INITIALISER_IPV4_ADDRESS( .ip_address, MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
+    INITIALISER_IPV4_ADDRESS( .netmask,    MAKE_IPV4_ADDRESS( 255,255,255,  0 ) ),
+    INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
+};
+
+static wiced_semaphore_t app_semaphore;
+static uint32_t onboarding_status;
 
 /******************************************************
  *               Function Definitions
  ******************************************************/
+
+/* When WiFi onboarding service is started, application will wait for
+ * this callback(onboarding either failed or succeed), application then may
+ * decide the next step. For example - if onboarding is success, application
+ * may call the wifi_onboarding_stop and trigger a reboot.
+ * On onboarding failure, application may retry certain number of times by starting the
+ * onboarding service again(after stopping it first)
+ */
+static void app_wifi_onboarding_callback( uint32_t result )
+{
+    WPRINT_APP_INFO( ( "[App] WiFi Onboarding callback..." ) );
+    if( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO( ("Onboarding Failed\r\n" ) );
+    }
+    else
+    {
+        WPRINT_APP_INFO( ("Onboarding successfull\r\n" ) );
+    }
+
+    onboarding_status = result;
+
+    wiced_rtos_set_semaphore(&app_semaphore);
+}
 
 int32_t i2c_write_accel(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t length)
 {
@@ -705,6 +739,73 @@ int rgb_handler(const char *data)
     return 0;
 }
 
+wiced_result_t quicksilver_ap_init(void)
+{
+    wiced_bool_t* device_configured;
+    wiced_result_t result;
+
+    result = wiced_dct_read_lock( (void**) &device_configured, WICED_FALSE, DCT_WIFI_CONFIG_SECTION, OFFSETOF(platform_dct_wifi_config_t, device_configured), sizeof(wiced_bool_t) );
+
+    if( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO( ("[App] Error fetching platform DCT section\n") );
+        wiced_dct_read_unlock(device_configured, WICED_FALSE);
+        return result;
+    }
+
+    if( *device_configured != WICED_TRUE )
+    {
+        wiced_rtos_init_semaphore(&app_semaphore);
+
+        WPRINT_APP_INFO( ("[App] Starting Wifi Onboarding service...\n") );
+
+        result = wiced_wifi_device_onboarding_start(&ap_ip_settings, app_wifi_onboarding_callback);
+
+        if( result != WICED_SUCCESS )
+        {
+            WPRINT_APP_INFO( ("[App] Error Starting the on-boarding of device\n") );
+            wiced_dct_read_unlock(device_configured, WICED_FALSE);
+            return result;
+        }
+
+        WPRINT_APP_INFO( ("[App] Waiting for Onboarding callback...\n") );
+
+        result = wiced_rtos_get_semaphore(&app_semaphore, WICED_NEVER_TIMEOUT);
+        if( result != WICED_SUCCESS )
+        {
+            WPRINT_APP_INFO( ( "[App] Sempahore get error or timeout\r\n" ) );
+            wiced_rtos_deinit_semaphore(&app_semaphore);
+            return result;
+        }
+
+        WPRINT_APP_INFO( ("[App] Stopping Wifi Onboarding service...\n") );
+        result = wiced_wifi_device_onboarding_stop();
+
+        if( result != WICED_SUCCESS )
+        {
+            WPRINT_APP_INFO( ("[App] Error Stopping the on-boarding service\n") );
+            wiced_rtos_deinit_semaphore(&app_semaphore);
+            return result;
+        }
+
+        wiced_framework_reboot();
+    }
+
+    WPRINT_APP_INFO( ( "[App] Normal Application start\n" ) );
+
+    result = wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO( ( "[App] Failed to join network \n") );
+        wiced_dct_read_unlock(device_configured, WICED_FALSE);
+        return result;
+    }
+
+    WPRINT_APP_INFO( ( "[App] Started STA successfully with saved configuration\n" ) );
+    wiced_dct_read_unlock(device_configured, WICED_FALSE);
+    return WICED_SUCCESS;
+}
+
 void application_start( )
 {
     wiced_result_t result;
@@ -715,12 +816,6 @@ void application_start( )
     /* Initialize the RGB */
     rgb_init();
 
-    /* Connect to Wi-Fi */
-    wifi_connect(0, NULL);
-
-    /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
-    arrow_initialize_routine();
-
     /* probe for temperature device */
     temperature_init();
 
@@ -730,10 +825,18 @@ void application_start( )
     /* initialize SPI for ADC */
     adc_init();
 
+    result = quicksilver_ap_init();
+    if(result != WICED_SUCCESS)
+    {
+        DBG("Error Initializing AP Server");
+        while(1);
+    }
+
+    /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
+    arrow_initialize_routine();
+
     /* Connect to the MQTT Service */
     arrow_mqtt_connect_routine();
-
-    quicksilver_data data = {0};
 
     // Add command handlers
     add_cmd_handler("rgb", rgb_handler);
