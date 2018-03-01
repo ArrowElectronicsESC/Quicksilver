@@ -118,8 +118,8 @@ typedef struct {
 /** @defgroup hts221_Infos
   * @{
   */
-  /** I2C Device Address 8 bit format  **/
-#define HTS221_I2C_ADDRESS   0xBF
+  /** I2C Device Address 7 bit format  **/
+#define HTS221_I2C_ADDRESS   0x5F
 
 /** Device Identification (Who am I) **/
 #define HTS221_ID            0xBC
