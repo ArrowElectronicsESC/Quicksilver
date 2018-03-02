@@ -31,12 +31,3 @@
  * so agrees to indemnify Cypress against all liability.
  */
 #pragma once
-
-typedef struct color
-{
-    unsigned char Red;
-    unsigned char Green;
-    unsigned char Blue;
-} color;
-
-void show_color( color c);

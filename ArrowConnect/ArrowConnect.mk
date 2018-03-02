@@ -22,6 +22,7 @@ $(NAME)_SOURCES    += acnsdkc/json/telemetry.c
 
 $(NAME)_SOURCES    += Drivers/Sensors/LIS2DH12/lis2dh12.c
 $(NAME)_SOURCES    += Drivers/Sensors/HTS221/hts221.c
+$(NAME)_SOURCES    += Drivers/LED/APA102/apa102.c
 
 #$(NAME)_SOURCES    += $(patsubst $(SDK_PATH)%,../acn-sdk-c/%,$(WOLF_SRC))
 

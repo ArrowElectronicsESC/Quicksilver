@@ -1,4 +1,3 @@
-
 #include <stdlib.h>
 #include "wiced.h"
 #include "wiced_tls.h"
@@ -28,6 +27,7 @@
 
 #include "Drivers/Sensors/LIS2DH12/lis2dh12.h"
 #include "Drivers/Sensors/HTS221/hts221.h"
+#include "Drivers/LED/APA102/apa102.h"
 
 /******************************************************
  *                      Macros
@@ -35,6 +35,7 @@
 
 #define PING_TIMEOUT_MS          2000
 #define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
+#define APP_ERROR_CHECK(x)      if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
 /******************************************************
  *                    Constants
@@ -67,7 +68,7 @@ typedef struct {
 /******************************************************
  *                    Structures
  ******************************************************/
-static const wiced_i2c_device_t i2c_device_temperature =
+static wiced_i2c_device_t i2c_device_temperature =
 {
         .port = WICED_I2C_2,  //I2C_1
         .address = HTS221_I2C_ADDRESS,
@@ -75,18 +76,12 @@ static const wiced_i2c_device_t i2c_device_temperature =
         .speed_mode = I2C_STANDARD_SPEED_MODE,
 };
 
-static const wiced_i2c_device_t i2c_device_accelerometer =
+static wiced_i2c_device_t i2c_device_accelerometer =
 {
         .port = WICED_I2C_2,  //I2C_1
         .address = LIS2DH12_I2C_ADD_H,
         .address_width = I2C_ADDRESS_WIDTH_7BIT,
         .speed_mode = I2C_STANDARD_SPEED_MODE,
-};
-
-static color ledColor = {
-        .Red = 0,
-        .Green = 0,
-        .Blue = 0,
 };
 
 static const wiced_ip_setting_t ap_ip_settings =
@@ -111,6 +106,7 @@ wiced_result_t probe_sensors(void);
 static quicksilver_data telemetryData;
 static lis2dh12_ctx_t accel_ctx;
 static hts221_ctx_t hts_ctx;
+static apa102_ctx_t rgb_ctx;
 static axis3bit16_t data_raw_acceleration;
 static float acceleration_mg[3];
 static axis1bit16_t data_raw_humidity;
@@ -155,7 +151,7 @@ static void app_wifi_onboarding_callback( uint32_t result )
 int32_t i2c_write_accel(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t length)
 {
     uint8_t write_buffer[length + 1];
-    write_buffer[0] = reg;
+    write_buffer[0] = (reg | 0x80);
     memcpy(&write_buffer[1], buffer, length);
 
     wiced_i2c_write( &i2c_device_accelerometer, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, write_buffer, sizeof(write_buffer) );
@@ -165,7 +161,7 @@ int32_t i2c_write_accel(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t l
 
 int32_t i2c_read_accel(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t length)
 {
-    uint8_t tx_buffer [1] = {reg};
+    uint8_t tx_buffer [1] = {(reg | 0x80)};
 
     wiced_i2c_write( &i2c_device_accelerometer, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, tx_buffer, 1 );
     wiced_i2c_read( &i2c_device_accelerometer, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, buffer, length );
@@ -176,7 +172,7 @@ int32_t i2c_read_accel(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t le
 int32_t i2c_write_hts(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t length)
 {
     uint8_t write_buffer[length + 1];
-    write_buffer[0] = reg;
+    write_buffer[0] = (reg | 0x80);
     memcpy(&write_buffer[1], buffer, length);
 
     wiced_i2c_write( &i2c_device_temperature, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, write_buffer, sizeof(write_buffer) );
@@ -186,10 +182,31 @@ int32_t i2c_write_hts(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t len
 
 int32_t i2c_read_hts(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t length)
 {
-    uint8_t tx_buffer [1] = {reg};
+    uint8_t tx_buffer [1] = {(reg | 0x80)};
 
     wiced_i2c_write( &i2c_device_temperature, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, tx_buffer, 1 );
     wiced_i2c_read( &i2c_device_temperature, WICED_I2C_START_FLAG | WICED_I2C_STOP_FLAG, buffer, length );
+
+    return 0;
+}
+
+int32_t rgb_pin_set(void * dev_ctx, uint32_t pin)
+{
+    wiced_gpio_output_high(pin);
+
+    return 0;
+}
+
+int32_t rgb_pin_clear(void * dev_ctx, uint32_t pin)
+{
+    wiced_gpio_output_low(pin);
+
+    return 0;
+}
+
+int32_t rgb_delay_ms(void * dev_ctx, uint32_t milliseconds)
+{
+    DELAY_MS(milliseconds);
 
     return 0;
 }
@@ -239,32 +256,29 @@ float linear_interpolation(lin_t *lin, int16_t x)
 /*
  * Holder function to get HTS221 temperature
  */
-int temperature_get(int argc, char *argv[]){
-
+int temperature_get(int argc, char *argv[])
+{
     hts221_reg_t reg;
     hts221_status_get(&hts_ctx, &reg.status_reg);
 
     if (reg.status_reg.h_da)
     {
       /* Read humidity data */
-      memset(data_raw_humidity.u8bit, 0x00, sizeof(int16_t));
-      hts221_read_reg(&hts_ctx, HTS221_HUMIDITY_OUT_L, data_raw_humidity.u8bit, 2);
-      data_raw_humidity.i16bit =(data_raw_humidity.u8bit[1]<<8 | data_raw_humidity.u8bit[0]);
-      humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity.i16bit);
-      if (humidity_perc < 0) humidity_perc = 0;
-      if (humidity_perc > 100) humidity_perc = 100;
+        memset(data_raw_humidity.u8bit, 0x00, sizeof(int16_t));
+        hts221_humidity_raw_get(&hts_ctx, data_raw_humidity.u8bit);
+        humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity.i16bit);
+        if (humidity_perc < 0) humidity_perc = 0;
+        if (humidity_perc > 100) humidity_perc = 100;
+        telemetryData.humidity = humidity_perc;
     }
     if (reg.status_reg.t_da)
     {
-      /* Read temperature data */
-      memset(data_raw_temperature.u8bit, 0x00, sizeof(int16_t));
-      hts221_read_reg(&hts_ctx, HTS221_TEMP_OUT_L, data_raw_temperature.u8bit, 2);
-      data_raw_temperature.i16bit =(data_raw_temperature.u8bit[1]<<8 | data_raw_temperature.u8bit[0]);
-      temperature_degC = linear_interpolation(&lin_temp, data_raw_temperature.i16bit);
+        /* Read temperature data */
+        memset(data_raw_temperature.u8bit, 0x00, sizeof(int16_t));
+        hts221_temperature_raw_get(&hts_ctx, data_raw_temperature.u8bit);
+        temperature_degC = linear_interpolation(&lin_temp, data_raw_temperature.i16bit);
+        telemetryData.temperature = temperature_degC;
     }
-
-    telemetryData.temperature = temperature_degC;
-    telemetryData.humidity = humidity_perc;
 
     return 0;
 }
@@ -272,19 +286,17 @@ int temperature_get(int argc, char *argv[]){
 /*
  * Holder function to get LIS2DH12 accelerometer
  */
-int accelerometer_get(int argc, char *argv[]){
+int accelerometer_get(int argc, char *argv[])
+{
 
     lis2dh12_reg_t reg;
     lis2dh12_status_get(&accel_ctx, &reg.status_reg);
 
-    if( reg.status_reg.zyxda ) {
+    if( reg.status_reg.zyxda )
+    {
 
-        lis2dh12_read_reg(&accel_ctx, LIS2DH12_OUT_X_L, data_raw_acceleration.u8bit, 6);
-
-        data_raw_acceleration.i16bit[0] =(data_raw_acceleration.u8bit[1]<<8 | data_raw_acceleration.u8bit[0]);
-        data_raw_acceleration.i16bit[1] =(data_raw_acceleration.u8bit[3]<<8 | data_raw_acceleration.u8bit[2]);
-        data_raw_acceleration.i16bit[2] =(data_raw_acceleration.u8bit[5]<<8 | data_raw_acceleration.u8bit[4]);
-
+        memset(data_raw_acceleration.u8bit, 0x00, 3*sizeof(int16_t));
+        lis2dh12_acceleration_raw_get(&accel_ctx, data_raw_acceleration.u8bit);
         acceleration_mg[0] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[0] );
         acceleration_mg[1] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[1] );
         acceleration_mg[2] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[2] );
@@ -292,9 +304,6 @@ int accelerometer_get(int argc, char *argv[]){
         telemetryData.accelerometer.x = acceleration_mg[0];
         telemetryData.accelerometer.y = acceleration_mg[1];
         telemetryData.accelerometer.z = acceleration_mg[2];
-
-        DBG("Accel X: %d", telemetryData.accelerometer.x);
-
     }
 
     return 0;
@@ -390,60 +399,11 @@ wiced_result_t accelerometer_init( void )
     return WICED_SUCCESS;
 }
 
-void show_color( color c)
-{
-    unsigned int mask = 1 <<31;
-    unsigned int data_array[3] = {};
-    data_array[0] = 0;
-    data_array[1] = 0;
-    data_array[2] = 0xFFFFFFFF;
-
-    data_array[1] = 0;
-    data_array[1] = 0b111 << 29;
-    data_array[1] |= 0b00010 << 24;
-    data_array[1] |= c.Blue << 16;
-    data_array[1] |= c.Green << 8;
-    data_array[1] |= c.Red;
-
-    for( int i = 0; i< 3; i++ )
-    {
-        mask = 1<<31;
-
-        for ( int j = 0; j<32; j++)
-        {
-            wiced_gpio_output_low( WICED_RGB_CLOCK );
-
-            if ( data_array[i] & mask )
-            {
-                wiced_gpio_output_high( WICED_RGB_DATA );
-            }
-            else
-            {
-                wiced_gpio_output_low( WICED_RGB_DATA );
-            }
-
-            wiced_gpio_output_high( WICED_RGB_CLOCK );
-
-            mask >>= 1; // right shift by 1
-        }
-    }
-}
-
 /*
  * Initializes RGB LED
  */
 wiced_result_t rgb_init( void )
 {
-    color Rainbow[8] = {
-            {255,0,0},
-            {255,110,0},
-            {255,255,0},
-            {0,255,0},
-            {0,0,255},
-            {0,255,255},
-            {255,0,255},
-            {255,255,255}
-    };
 
     wiced_gpio_init( WICED_RGB_CLOCK, OUTPUT_PUSH_PULL );
     wiced_gpio_init( WICED_RGB_DATA, OUTPUT_PUSH_PULL );
@@ -451,16 +411,15 @@ wiced_result_t rgb_init( void )
     wiced_gpio_output_high( WICED_RGB_CLOCK );
     wiced_gpio_output_high( WICED_RGB_DATA );
 
-    for ( int i = 0; i< 8; i++ )
-    {
-        show_color(Rainbow[i]);
-        wiced_rtos_delay_milliseconds(500);
-    }
+    rgb_ctx.clk_in_pin = WICED_RGB_CLOCK;
+    rgb_ctx.data_in_pin = WICED_RGB_DATA;
+    rgb_ctx.pin_set = rgb_pin_set;
+    rgb_ctx.pin_clear = rgb_pin_clear;
+    rgb_ctx.delay_ms = rgb_delay_ms;
 
-    wiced_gpio_output_high( WICED_RGB_CLOCK );
-    wiced_gpio_output_high( WICED_RGB_DATA );
+    apa102_led_ramp_sequence(&rgb_ctx);
 
-    show_color(ledColor);
+    apa102_led_off(&rgb_ctx);
 
     return WICED_SUCCESS;
 }
@@ -475,32 +434,32 @@ int update_sensor_data(void * data)
 
 int rgb_handler(const char *data)
 {
-    color RGBColor = {0};
+    apa102_color_t color = {0};
 
     DBG("---------------------------------------------");
     DBG("rgb_handler: %s", data);
     DBG("---------------------------------------------");
-    JsonNode *main = json_decode(data);
-    if(main)
+    JsonNode * rgb_color = json_decode(data);
+    if(rgb_color)
     {
-        JsonNode *red_val = json_find_member(main, "red");
+        JsonNode *red_val = json_find_member(rgb_color, "red");
         if(red_val && red_val->tag == JSON_NUMBER)
         {
-            RGBColor.Red = (int)red_val->number_;
+            color.red = (int)red_val->number_;
         }
-        JsonNode *green_val = json_find_member(main, "green");
+        JsonNode *green_val = json_find_member(rgb_color, "green");
         if(green_val && green_val->tag == JSON_NUMBER)
         {
-            RGBColor.Green = (int)green_val->number_;
+            color.green = (int)green_val->number_;
         }
-        JsonNode *blue_val = json_find_member(main, "blue");
+        JsonNode *blue_val = json_find_member(rgb_color, "blue");
         if(blue_val && blue_val->tag == JSON_NUMBER)
         {
-            RGBColor.Blue = (int)blue_val->number_;
+            color.blue = (int)blue_val->number_;
         }
-        json_delete(main);
+        json_delete(rgb_color);
 
-        show_color(RGBColor);
+        apa102_led_color_set(&rgb_ctx, color);
     }
     else
     {
@@ -583,45 +542,26 @@ void application_start( )
 
     /* Initialize the WICED platform */
     result = wiced_init();
-    if(result != WICED_SUCCESS)
-    {
-        DBG("Error Initializing WICED");
-    }
+    APP_ERROR_CHECK(result);
 
     /* Initialize I2C*/
     result = i2c_init();
-    if(result != WICED_SUCCESS)
-    {
-        DBG("Error Initializing I2C");
-    }
+    APP_ERROR_CHECK(result);
 
     /* Initialize the RGB */
     result = rgb_init();
-    if(result != WICED_SUCCESS)
-    {
-        DBG("Error Initializing RGB");
-    }
+    APP_ERROR_CHECK(result);
 
     /* probe for temperature device */
     result = temperature_init();
-    if(result != WICED_SUCCESS)
-    {
-        DBG("Error Initializing Temp/Humidity");
-    }
+    APP_ERROR_CHECK(result);
 
     /* probe for accelerometer device */
-    accelerometer_init();
-    if(result != WICED_SUCCESS)
-    {
-        DBG("Error Initializing Accelerometer");
-    }
+    result = accelerometer_init();
+    APP_ERROR_CHECK(result);
 
     result = quicksilver_ap_init();
-    if(result != WICED_SUCCESS)
-    {
-        DBG("Error Initializing AP Server");
-        while(1);
-    }
+    APP_ERROR_CHECK(result);
 
     /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
     arrow_initialize_routine();

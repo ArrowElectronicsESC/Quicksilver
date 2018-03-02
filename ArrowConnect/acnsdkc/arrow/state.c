@@ -11,6 +11,7 @@
 #include <debug.h>
 #include <sys/type.h>
 #include "ArrowConnect.h"
+#include "Drivers/LED/APA102/apa102.h"
 
 int state_handler(char *str)
 {
@@ -66,8 +67,12 @@ int state_handler(char *str)
                         }
 
                         DBG("Got colors: %d %d %d", Red, Green, Blue);
-                        color C = {Red, Green, Blue};
-                        show_color(C);
+//                        apa102_color_t C = {
+//                                .red =Red,
+//                                .green = Green,
+//                                .blue =Blue
+//                        };
+//                        show_color(C);
 
                         //add_state("rgbValues","[123,255,45]");
                         //arrow_post_state_update(current_device());
