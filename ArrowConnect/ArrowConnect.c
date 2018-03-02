@@ -12,13 +12,13 @@
 #include "arrow/api/gateway/gateway.h"
 
 
-#include <bsd/socket.h>
-#include <time/time.h>
-#include <ntp/ntp.h>
+//#include <bsd/socket.h>
+//#include <time/time.h>
+//#include <ntp/ntp.h>
 #include <arrow/routine.h>
 #include <arrow/utf8.h>
-#include <sys/mac.h>
-#include <ssl/ssl.h>
+//#include <sys/mac.h>
+//#include <ssl/ssl.h>
 #include <debug.h>
 
 #include <math.h>
@@ -34,6 +34,7 @@
  ******************************************************/
 
 #define PING_TIMEOUT_MS          2000
+#define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
 
 /******************************************************
  *                    Constants
@@ -47,58 +48,8 @@
 #define MAX_HISTORY_LENGTH (20)
 #define MAX_NUM_COMMAND_TABLE  (8)
 
-#define LIS2DH12_CTRL1_ODR_400    (0x07<<4) // 400 Hz
-#define LIS2DH12_CTRL1_ODR_25     (0x03<<4) // 25 Hz
-#define LIS2DH12_CTRL1_ODR_10     (0x02<<4) // 10 Hz
-#define LIS2DH12_CTRL1_ODR_1      (0x01<<4) // 1 Hz
-#define LIS2DH12_CTRL1_ZEN        (0x01<<2)
-#define LIS2DH12_CTRL1_YEN        (0x01<<1)
-#define LIS2DH12_CTRL1_XEN        (0x01)
-
-#define LIS2DH12_CTRL4_BDU        (0x80)
-
-#define LIS2DH12_STAT_ZYXDA       (0x01<<3)
-
 #define NUM_I2C_MESSAGE_RETRIES   (3)
 
-#define SPI_CLOCK_SPEED_HZ        ( 500000 )
-#define SPI_BIT_WIDTH             ( 8 )
-#define SPI_MODE                  ( SPI_CLOCK_FALLING_EDGE | SPI_CLOCK_IDLE_LOW | SPI_MSB_FIRST | SPI_CS_ACTIVE_LOW )
-
-#define MCP3208_START             (0x01<<10)
-#define MCP3208_SE                (0x01<<9)
-#define MCP3208_DIFF              (0x00<<9)
-#define MCP3208_CH0               (0x00<<6)
-#define MCP3208_CH1               (0x01<<6)
-#define MCP3208_CH2               (0x02<<6)
-#define MCP3208_CH3               (0x03<<6)
-#define MCP3208_CH4               (0x04<<6)
-#define MCP3208_CH5               (0x05<<6)
-#define MCP3208_CH6               (0x06<<6)
-#define MCP3208_CH7               (0x07<<6)
-
-#define RESET_PIN WICED_GPIO_14
-
-int arrow_connect_test(int argc, char *argv[]);
-int find_gateway_by_os(int argc, char *argv[]);
-int send_telemetry(int argc, char *argv[]);
-
-#define DIAGNOSTICS_COMMANDS \
-{ "wifi",  wifi_connect,  NULL, NULL, NULL, "", "does a wifi" }, \
-{ "ntp_set_time_cycle", do_ntp_time, NULL, NULL, NULL, "", "does a ntp"},\
-{ "arrow_connect", arrow_connect_test, NULL, NULL, NULL, "", "does a connect"},\
-{ "gateway", find_gateway_by_os, NULL, NULL, NULL, "", "does a gateway"},\
-{ "telemetry", send_telemetry, 1, NULL, NULL, "", "does a telemetry"},
-
-#if 0
-static char line_buffer[MAX_LINE_LENGTH];
-static char history_buffer_storage[MAX_LINE_LENGTH * MAX_HISTORY_LENGTH];
-
-static const command_t init_commands[] = {
-        DIAGNOSTICS_COMMANDS
-        CMD_TABLE_END
-};
-#endif
 /******************************************************
  *                   Enumerations
  ******************************************************/
@@ -106,25 +57,48 @@ static const command_t init_commands[] = {
 /******************************************************
  *                 Type Definitions
  ******************************************************/
-
-//typedef struct color
-//{
-//    unsigned char Red;
-//    unsigned char Green;
-//    unsigned char Blue;
-//} color;
+typedef struct {
+  float x0;
+  float y0;
+  float x1;
+  float y1;
+} lin_t;
 
 /******************************************************
  *                    Structures
  ******************************************************/
+static const wiced_i2c_device_t i2c_device_temperature =
+{
+        .port = WICED_I2C_2,  //I2C_1
+        .address = HTS221_I2C_ADDRESS,
+        .address_width = I2C_ADDRESS_WIDTH_7BIT,
+        .speed_mode = I2C_STANDARD_SPEED_MODE,
+};
+
+static const wiced_i2c_device_t i2c_device_accelerometer =
+{
+        .port = WICED_I2C_2,  //I2C_1
+        .address = LIS2DH12_I2C_ADD_H,
+        .address_width = I2C_ADDRESS_WIDTH_7BIT,
+        .speed_mode = I2C_STANDARD_SPEED_MODE,
+};
+
+static color ledColor = {
+        .Red = 0,
+        .Green = 0,
+        .Blue = 0,
+};
+
+static const wiced_ip_setting_t ap_ip_settings =
+{
+    INITIALISER_IPV4_ADDRESS( .ip_address, MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
+    INITIALISER_IPV4_ADDRESS( .netmask,    MAKE_IPV4_ADDRESS( 255,255,255,  0 ) ),
+    INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
+};
 
 /******************************************************
  *               Static Function Declarations
  ******************************************************/
-
-static wiced_result_t send_ping              ( int interface );
-static wiced_result_t print_wifi_config_dct ( void );
-wiced_result_t scan_result_handler( wiced_scan_handler_result_t* malloced_scan_result );
 wiced_result_t temperature_init( void );
 wiced_result_t accelerometer_init( void );
 wiced_result_t adc_init( void );
@@ -134,56 +108,7 @@ wiced_result_t probe_sensors(void);
 /******************************************************
  *               Variable Definitions
  ******************************************************/
-
-static char line_buffer[MAX_LINE_LENGTH];
-static char history_buffer_storage[MAX_LINE_LENGTH * MAX_HISTORY_LENGTH];
-
-static wiced_ip_address_t  ping_target_ip;
-static wiced_usb_user_config_t usb_host_config;
-
 static quicksilver_data telemetryData;
-
-static wiced_i2c_device_t i2c_device_temperature =
-{
-        .port = WICED_I2C_2,  //I2C_1
-        .address = HTS221_I2C_ADDRESS,
-        .address_width = I2C_ADDRESS_WIDTH_7BIT,
-        .speed_mode = I2C_STANDARD_SPEED_MODE,
-};
-
-static wiced_i2c_device_t i2c_device_accelerometer =
-{
-        .port = WICED_I2C_2,  //I2C_1
-        .address = LIS2DH12_I2C_ADD_H,
-        .address_width = I2C_ADDRESS_WIDTH_7BIT,
-        .speed_mode = I2C_STANDARD_SPEED_MODE,
-};
-
-static const wiced_spi_device_t spi0_device =
-{
-        .port        = WICED_SPI_1,
-        .chip_select = WICED_GPIO_22,
-        .speed       = SPI_CLOCK_SPEED_HZ,
-        .mode        = SPI_MODE,
-        .bits        = SPI_BIT_WIDTH
-};
-
-static const wiced_spi_device_t spi1_device =
-{
-        .port        = WICED_SPI_2,
-        .chip_select = WICED_GPIO_NONE,
-        .speed       = SPI_CLOCK_SPEED_HZ,
-        .mode        = SPI_MODE,
-        .bits        = SPI_BIT_WIDTH
-};
-
-typedef struct {
-  float x0;
-  float y0;
-  float x1;
-  float y1;
-} lin_t;
-
 static lis2dh12_ctx_t accel_ctx;
 static hts221_ctx_t hts_ctx;
 static axis3bit16_t data_raw_acceleration;
@@ -196,27 +121,6 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
-static color ledColor = {
-        .Red = 0,
-        .Green = 0,
-        .Blue = 0,
-};
-
-#define DIAGNOSTICS_COMMANDS \
-{ "config",  wifi_config,  1, NULL, NULL, "<STA name and pass key>", "adds AP settings to DCT" }, \
-{ "print_config",  print_wifi,  0, NULL, NULL,"",  "prints current wifi configuration" }, \
-{ "scan",  scan_wifi,  0, NULL, NULL,"",  "scans for broadcasting wifi access points" }, \
-{ "ping",  ping,  1, NULL, NULL,"<ip address>",  "pings wifi configuration" }, \
-{ "temp",  temperature_get,  0, NULL, NULL,"",  "get HTS221 temperature" }, \
-{ "accel",  accelerometer_get,  0, NULL, NULL,"",  "get LIS2DH12 accelerometer" }, \
-
-static const wiced_ip_setting_t ap_ip_settings =
-{
-    INITIALISER_IPV4_ADDRESS( .ip_address, MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
-    INITIALISER_IPV4_ADDRESS( .netmask,    MAKE_IPV4_ADDRESS( 255,255,255,  0 ) ),
-    INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
-};
-
 static wiced_semaphore_t app_semaphore;
 static uint32_t onboarding_status;
 
@@ -389,6 +293,8 @@ int accelerometer_get(int argc, char *argv[]){
         telemetryData.accelerometer.y = acceleration_mg[1];
         telemetryData.accelerometer.z = acceleration_mg[2];
 
+        DBG("Accel X: %d", telemetryData.accelerometer.x);
+
     }
 
     return 0;
@@ -458,7 +364,8 @@ wiced_result_t temperature_init( void )
  * Initializes I2C, probes for accelerometer device
  */
 wiced_result_t accelerometer_init( void )
-{    /*
+{
+   /*
     *  Initialize mems driver interface
     */
     accel_ctx.write_reg = i2c_write_accel;
@@ -479,47 +386,6 @@ wiced_result_t accelerometer_init( void )
 
     /* Set normal mode */
     lis2dh12_operating_mode_set(&accel_ctx ,LIS2DH12_HR_12bit);
-
-    return WICED_SUCCESS;
-}
-
-/*
- * Initializes SPI for ADC
- */
-wiced_result_t adc_init( void )
-{
-    wiced_result_t result;
-    wiced_spi_message_segment_t spi_segment;
-    uint16_t wbuf[16];
-    uint16_t rbuf[16];
-    uint16_t code;
-    float vin;
-
-    memset(wbuf, 0, 32);
-    memset(rbuf, 0, 32);
-
-    /* Initialize SPI1 */
-    if ( wiced_spi_init( &spi1_device ) != WICED_SUCCESS )
-    {
-//        WPRINT_APP_INFO( ( "SPI1 Initialization Failed\n" ) );
-        return WICED_ERROR;
-    }
-
-    spi_segment.tx_buffer = (void*)wbuf;
-    spi_segment.rx_buffer = (void*)rbuf;
-    spi_segment.length = 4;
-
-    wbuf[0] = MCP3208_START | MCP3208_SE | MCP3208_CH0; /* single-ended, CH0) */
-    result = wiced_spi_transfer( &spi1_device, &spi_segment, 1 );
-    if (result != WICED_SUCCESS)
-    {
-//        WPRINT_APP_INFO( ( "SPI1 Transfer Failed\n" ) );
-        return WICED_ERROR;
-    }
-
-    code = (rbuf[0]<<8 | rbuf[1]) & 0xfff;
-    vin = (code * 3.30) / 4096;
-//    WPRINT_APP_INFO( ( "MCP3208 CH0 %.1fV\n", vin ) );
 
     return WICED_SUCCESS;
 }
@@ -716,22 +582,39 @@ void application_start( )
     wiced_result_t result;
 
     /* Initialize the WICED platform */
-    wiced_init();
+    result = wiced_init();
+    if(result != WICED_SUCCESS)
+    {
+        DBG("Error Initializing WICED");
+    }
 
     /* Initialize I2C*/
-    i2c_init();
+    result = i2c_init();
+    if(result != WICED_SUCCESS)
+    {
+        DBG("Error Initializing I2C");
+    }
 
     /* Initialize the RGB */
-    rgb_init();
+    result = rgb_init();
+    if(result != WICED_SUCCESS)
+    {
+        DBG("Error Initializing RGB");
+    }
 
     /* probe for temperature device */
-    temperature_init();
+    result = temperature_init();
+    if(result != WICED_SUCCESS)
+    {
+        DBG("Error Initializing Temp/Humidity");
+    }
 
     /* probe for accelerometer device */
     accelerometer_init();
-
-    /* initialize SPI for ADC */
-    adc_init();
+    if(result != WICED_SUCCESS)
+    {
+        DBG("Error Initializing Accelerometer");
+    }
 
     result = quicksilver_ap_init();
     if(result != WICED_SUCCESS)
