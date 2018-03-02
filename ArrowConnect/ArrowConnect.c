@@ -4,6 +4,8 @@
 #include "command_console.h"
 #include "device_onboarding.h"
 #include "ArrowConnect.h"
+#include "arrow/device_command.h"
+#include "platform.h"
 
 #include "quicksilver.h"
 
@@ -11,13 +13,8 @@
 #include "arrow/api/gateway/gateway.h"
 
 
-//#include <bsd/socket.h>
-//#include <time/time.h>
-//#include <ntp/ntp.h>
 #include <arrow/routine.h>
 #include <arrow/utf8.h>
-//#include <sys/mac.h>
-//#include <ssl/ssl.h>
 #include <debug.h>
 
 #include <math.h>
@@ -35,7 +32,7 @@
 
 #define PING_TIMEOUT_MS          2000
 #define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
-#define APP_ERROR_CHECK(x)      if(x != WICED_SUCCESS) {wiced_framework_reboot();}
+#define VERIFY_SUCCESS(x)       if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
 /******************************************************
  *                    Constants
@@ -121,33 +118,8 @@ static wiced_semaphore_t app_semaphore;
 static uint32_t onboarding_status;
 
 /******************************************************
- *               Function Definitions
+ *               CTX Interface Function Definitions
  ******************************************************/
-
-/* When WiFi onboarding service is started, application will wait for
- * this callback(onboarding either failed or succeed), application then may
- * decide the next step. For example - if onboarding is success, application
- * may call the wifi_onboarding_stop and trigger a reboot.
- * On onboarding failure, application may retry certain number of times by starting the
- * onboarding service again(after stopping it first)
- */
-static void app_wifi_onboarding_callback( uint32_t result )
-{
-    WPRINT_APP_INFO( ( "[App] WiFi Onboarding callback..." ) );
-    if( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("Onboarding Failed\r\n" ) );
-    }
-    else
-    {
-        WPRINT_APP_INFO( ("Onboarding successfull\r\n" ) );
-    }
-
-    onboarding_status = result;
-
-    wiced_rtos_set_semaphore(&app_semaphore);
-}
-
 int32_t i2c_write_accel(void * dev_ctx, uint8_t reg, uint8_t* buffer, uint16_t length)
 {
     uint8_t write_buffer[length + 1];
@@ -211,23 +183,22 @@ int32_t rgb_delay_ms(void * dev_ctx, uint32_t milliseconds)
     return 0;
 }
 
-wiced_result_t i2c_init(void)
+/******************************************************
+ *               Helper Function Definitions
+ ******************************************************/
+/*
+ *  Function used to apply coefficient
+ */
+float linear_interpolation(lin_t *lin, int16_t x)
 {
-    /* Initialize I2C */
-    if ( wiced_i2c_init( &i2c_device_accelerometer ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-
-    if ( wiced_i2c_init( &i2c_device_temperature ) != WICED_SUCCESS )
-    {
-        return WICED_ERROR;
-    }
-
-    return probe_sensors();
+ return ((lin->y1 - lin->y0) * x +  ((lin->x1 * lin->y0) - (lin->x0 * lin->y1)))
+        / (lin->x1 - lin->x0);
 }
 
-wiced_result_t probe_sensors(void)
+/******************************************************
+ *               Application Function Definitions
+ ******************************************************/
+wiced_result_t i2c_sensor_probe(void)
 {
     /* Probe I2C bus for accelerometer */
     if( wiced_i2c_probe_device( &i2c_device_accelerometer, NUM_I2C_MESSAGE_RETRIES ) != WICED_TRUE )
@@ -244,69 +215,35 @@ wiced_result_t probe_sensors(void)
     return WICED_SUCCESS;
 }
 
-/*
- *  Function used to apply coefficient
- */
-float linear_interpolation(lin_t *lin, int16_t x)
+wiced_result_t i2c_init(void)
 {
- return ((lin->y1 - lin->y0) * x +  ((lin->x1 * lin->y0) - (lin->x0 * lin->y1)))
-        / (lin->x1 - lin->x0);
+    /* Initialize I2C */
+    if ( wiced_i2c_init( &i2c_device_accelerometer ) != WICED_SUCCESS )
+    {
+        return WICED_ERROR;
+    }
+
+    if ( wiced_i2c_init( &i2c_device_temperature ) != WICED_SUCCESS )
+    {
+        return WICED_ERROR;
+    }
+
+    return i2c_sensor_probe();
 }
 
-/*
- * Holder function to get HTS221 temperature
- */
-int temperature_get(int argc, char *argv[])
+wiced_result_t gpio_init(void)
 {
-    hts221_reg_t reg;
-    hts221_status_get(&hts_ctx, &reg.status_reg);
-
-    if (reg.status_reg.h_da)
+    if(wiced_gpio_init( WICED_RGB_CLOCK, OUTPUT_PUSH_PULL ) != WICED_SUCCESS)
     {
-      /* Read humidity data */
-        memset(data_raw_humidity.u8bit, 0x00, sizeof(int16_t));
-        hts221_humidity_raw_get(&hts_ctx, data_raw_humidity.u8bit);
-        humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity.i16bit);
-        if (humidity_perc < 0) humidity_perc = 0;
-        if (humidity_perc > 100) humidity_perc = 100;
-        telemetryData.humidity = humidity_perc;
-    }
-    if (reg.status_reg.t_da)
-    {
-        /* Read temperature data */
-        memset(data_raw_temperature.u8bit, 0x00, sizeof(int16_t));
-        hts221_temperature_raw_get(&hts_ctx, data_raw_temperature.u8bit);
-        temperature_degC = linear_interpolation(&lin_temp, data_raw_temperature.i16bit);
-        telemetryData.temperature = temperature_degC;
+        return WICED_ERROR;
     }
 
-    return 0;
-}
-
-/*
- * Holder function to get LIS2DH12 accelerometer
- */
-int accelerometer_get(int argc, char *argv[])
-{
-
-    lis2dh12_reg_t reg;
-    lis2dh12_status_get(&accel_ctx, &reg.status_reg);
-
-    if( reg.status_reg.zyxda )
+    if(wiced_gpio_init( WICED_RGB_DATA, OUTPUT_PUSH_PULL ) != WICED_SUCCESS)
     {
-
-        memset(data_raw_acceleration.u8bit, 0x00, 3*sizeof(int16_t));
-        lis2dh12_acceleration_raw_get(&accel_ctx, data_raw_acceleration.u8bit);
-        acceleration_mg[0] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[0] );
-        acceleration_mg[1] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[1] );
-        acceleration_mg[2] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[2] );
-
-        telemetryData.accelerometer.x = acceleration_mg[0];
-        telemetryData.accelerometer.y = acceleration_mg[1];
-        telemetryData.accelerometer.z = acceleration_mg[2];
+        return WICED_ERROR;
     }
 
-    return 0;
+    return WICED_SUCCESS;
 }
 
 /*
@@ -370,6 +307,36 @@ wiced_result_t temperature_init( void )
 }
 
 /*
+ * Holder function to get HTS221 temperature
+ */
+int temperature_get(int argc, char *argv[])
+{
+    hts221_reg_t reg;
+    hts221_status_get(&hts_ctx, &reg.status_reg);
+
+    if (reg.status_reg.h_da)
+    {
+      /* Read humidity data */
+        memset(data_raw_humidity.u8bit, 0x00, sizeof(int16_t));
+        hts221_humidity_raw_get(&hts_ctx, data_raw_humidity.u8bit);
+        humidity_perc = linear_interpolation(&lin_hum, data_raw_humidity.i16bit);
+        if (humidity_perc < 0) humidity_perc = 0;
+        if (humidity_perc > 100) humidity_perc = 100;
+        telemetryData.humidity = humidity_perc;
+    }
+    if (reg.status_reg.t_da)
+    {
+        /* Read temperature data */
+        memset(data_raw_temperature.u8bit, 0x00, sizeof(int16_t));
+        hts221_temperature_raw_get(&hts_ctx, data_raw_temperature.u8bit);
+        temperature_degC = linear_interpolation(&lin_temp, data_raw_temperature.i16bit);
+        telemetryData.temperature = temperature_degC;
+    }
+
+    return 0;
+}
+
+/*
  * Initializes I2C, probes for accelerometer device
  */
 wiced_result_t accelerometer_init( void )
@@ -400,26 +367,45 @@ wiced_result_t accelerometer_init( void )
 }
 
 /*
+ * Holder function to get LIS2DH12 accelerometer
+ */
+int accelerometer_get(int argc, char *argv[])
+{
+
+    lis2dh12_reg_t reg;
+    lis2dh12_status_get(&accel_ctx, &reg.status_reg);
+
+    if( reg.status_reg.zyxda )
+    {
+
+        memset(data_raw_acceleration.u8bit, 0x00, 3*sizeof(int16_t));
+        lis2dh12_acceleration_raw_get(&accel_ctx, data_raw_acceleration.u8bit);
+        acceleration_mg[0] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[0] );
+        acceleration_mg[1] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[1] );
+        acceleration_mg[2] = LIS2DH12_FROM_FS_4g_HR_TO_mg( data_raw_acceleration.i16bit[2] );
+
+        telemetryData.accelerometer.x = acceleration_mg[0];
+        telemetryData.accelerometer.y = acceleration_mg[1];
+        telemetryData.accelerometer.z = acceleration_mg[2];
+    }
+
+    return 0;
+}
+
+/*
  * Initializes RGB LED
  */
 wiced_result_t rgb_init( void )
 {
-
-    wiced_gpio_init( WICED_RGB_CLOCK, OUTPUT_PUSH_PULL );
-    wiced_gpio_init( WICED_RGB_DATA, OUTPUT_PUSH_PULL );
-
-    wiced_gpio_output_high( WICED_RGB_CLOCK );
-    wiced_gpio_output_high( WICED_RGB_DATA );
-
     rgb_ctx.clk_in_pin = WICED_RGB_CLOCK;
     rgb_ctx.data_in_pin = WICED_RGB_DATA;
     rgb_ctx.pin_set = rgb_pin_set;
     rgb_ctx.pin_clear = rgb_pin_clear;
     rgb_ctx.delay_ms = rgb_delay_ms;
 
-    apa102_led_ramp_sequence(&rgb_ctx);
+    apa102_init(&rgb_ctx);
 
-    apa102_led_off(&rgb_ctx);
+    apa102_led_ramp_sequence(&rgb_ctx);
 
     return WICED_SUCCESS;
 }
@@ -467,6 +453,30 @@ int rgb_handler(const char *data)
     }
 
     return 0;
+}
+
+/* When WiFi onboarding service is started, application will wait for
+ * this callback(onboarding either failed or succeed), application then may
+ * decide the next step. For example - if onboarding is success, application
+ * may call the wifi_onboarding_stop and trigger a reboot.
+ * On onboarding failure, application may retry certain number of times by starting the
+ * onboarding service again(after stopping it first)
+ */
+static void app_wifi_onboarding_callback( uint32_t result )
+{
+    WPRINT_APP_INFO( ( "[App] WiFi Onboarding callback..." ) );
+    if( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO( ("Onboarding Failed\r\n" ) );
+    }
+    else
+    {
+        WPRINT_APP_INFO( ("Onboarding successfull\r\n" ) );
+    }
+
+    onboarding_status = result;
+
+    wiced_rtos_set_semaphore(&app_semaphore);
 }
 
 wiced_result_t quicksilver_ap_init(void)
@@ -536,41 +546,68 @@ wiced_result_t quicksilver_ap_init(void)
     return WICED_SUCCESS;
 }
 
-void application_start( )
+wiced_result_t quicksilver_init(void)
 {
-    wiced_result_t result;
-
-    /* Initialize the WICED platform */
-    result = wiced_init();
-    APP_ERROR_CHECK(result);
-
     /* Initialize I2C*/
-    result = i2c_init();
-    APP_ERROR_CHECK(result);
+    if(i2c_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
     /* Initialize the RGB */
-    result = rgb_init();
-    APP_ERROR_CHECK(result);
+    if(rgb_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
     /* probe for temperature device */
-    result = temperature_init();
-    APP_ERROR_CHECK(result);
+    if(temperature_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
     /* probe for accelerometer device */
-    result = accelerometer_init();
-    APP_ERROR_CHECK(result);
+    if(accelerometer_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
-    result = quicksilver_ap_init();
-    APP_ERROR_CHECK(result);
+    if(quicksilver_ap_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
+    return WICED_SUCCESS;
+}
+
+wiced_result_t arrow_cloud_init(void)
+{
     /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
-    arrow_initialize_routine();
+    if(arrow_initialize_routine() != ROUTINE_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
     /* Connect to the MQTT Service */
-    arrow_mqtt_connect_routine();
+    if(arrow_mqtt_connect_routine() != ROUTINE_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
     // Add command handlers
     add_cmd_handler("rgb", rgb_handler);
+
+    return WICED_SUCCESS;
+}
+
+void application_start( )
+{
+    /* Initialize the WICED platform */
+    VERIFY_SUCCESS(wiced_init());
+
+    VERIFY_SUCCESS(quicksilver_init());
+
+    VERIFY_SUCCESS(arrow_cloud_init());
 
     while(1)
     {
