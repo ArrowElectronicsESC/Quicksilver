@@ -1,6 +1,20 @@
 #include "apa102.h"
 
 /**
+  * @brief  Initialize the AP102 LED.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  *
+  */
+int32_t apa102_init(apa102_ctx_t *ctx)
+{
+    ctx->pin_set(ctx, ctx->data_in_pin);
+    ctx->pin_set(ctx, ctx->clk_in_pin);
+
+    return 0;
+}
+
+/**
   * @brief  Turn LED Off.
   *
   * @param  apa102_ctx_t *ctx: Interface definition
@@ -20,9 +34,10 @@ int32_t apa102_led_off(apa102_ctx_t *ctx)
 }
 
 /**
-  * @brief  Turn LED Off.
+  * @brief  Set the color of the LED.
   *
   * @param  apa102_ctx_t *ctx: Interface definition
+  * @param  apa102_color_t color: LED color
   *
   */
 int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
@@ -66,6 +81,14 @@ int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
     return 0;
 }
 
+/**
+  * @brief  Set the color of the LED.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  * @param  apa102_color_t * sequence: LED color sequence
+  * @param  uint32_t * size: Size of the array containing the color sequences
+  *
+  */
 int32_t apa102_led_show_sequence(apa102_ctx_t *ctx, apa102_color_t * sequence, uint32_t size)
 {
     for ( int i = 0; i < size; i++ )
@@ -77,6 +100,12 @@ int32_t apa102_led_show_sequence(apa102_ctx_t *ctx, apa102_color_t * sequence, u
     return 0;
 }
 
+/**
+  * @brief  Display the LED Rainbow sequence.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  *
+  */
 int32_t apa102_led_rainbow_sequence(apa102_ctx_t *ctx)
 {
     apa102_color_t Rainbow[8] = {
@@ -95,6 +124,12 @@ int32_t apa102_led_rainbow_sequence(apa102_ctx_t *ctx)
     return 0;
 }
 
+/**
+  * @brief  @brief  Display the LED Ramp sequence.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  *
+  */
 int32_t apa102_led_ramp_sequence(apa102_ctx_t *ctx)
 {
     apa102_color_t color =

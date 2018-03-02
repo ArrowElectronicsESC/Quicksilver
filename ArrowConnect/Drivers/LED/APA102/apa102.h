@@ -43,6 +43,8 @@ typedef struct {
   * @}
   */
 
+int32_t apa102_init(apa102_ctx_t *ctx);
+
 int32_t apa102_led_off(apa102_ctx_t *ctx);
 
 int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color);
