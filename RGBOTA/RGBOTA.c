@@ -1,4 +1,5 @@
 #include "wiced.h"
+#include "math.h"
 
 #define RGB_CLOCK WICED_GPIO_10
 #define RGB_DATA WICED_GPIO_8
@@ -67,13 +68,17 @@ void application_start()
     wiced_gpio_init( RGB_CLOCK, OUTPUT_PUSH_PULL );
     wiced_gpio_init( RGB_DATA, OUTPUT_PUSH_PULL );
 
+    double Angle = 0;
+    color C;
 
     while( 1 )
     {
-        for ( int i = 0; i< 8; i++ )
-        {
-            show_color(Rainbow[i]);
-            wiced_rtos_delay_milliseconds(1000);
-        }
+        C.Red = 255 * ((sin(Angle) + 1)/2.0);
+        C.Green = 255 * ((sin(Angle + (3.14/2.0)) + 1)/2.0);
+        C.Blue = 255 * ((sin(Angle+(3.14/3.0)) + 1)/2.0);
+
+        show_color(C);
+
+        Angle += 0.0001;
     }
 }
