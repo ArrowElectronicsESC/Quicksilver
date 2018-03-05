@@ -14,12 +14,22 @@
 char *telemetry_serialize(arrow_device_t *device, void *d) {
     quicksilver_data *data = (quicksilver_data *)d;
   JsonNode *_node = json_mkobject();
+#ifdef __IBM__
+  JsonNode *_data = json_mkobject();
+  json_append_member(_data, TELEMETRY_TEMPERATURE, json_mknumber(data->temperature));
+  json_append_member(_data, TELEMETRY_HUMIDITY, json_mknumber(data->humidity));
+  json_append_member(_data, TELEMETRY_ACCELEROMETER_X, json_mknumber(data->accelerometer.x));
+  json_append_member(_data, TELEMETRY_ACCELEROMETER_Y, json_mknumber(data->accelerometer.y));
+  json_append_member(_data, TELEMETRY_ACCELEROMETER_Z, json_mknumber(data->accelerometer.z));
+  json_append_member(_node, "d", _data);
+#else
   json_append_member(_node, TELEMETRY_DEVICE_HID, json_mkstring(P_VALUE(device->hid)));
   json_append_member(_node, TELEMETRY_TEMPERATURE, json_mknumber(data->temperature));
   json_append_member(_node, TELEMETRY_HUMIDITY, json_mknumber(data->humidity));
   json_append_member(_node, TELEMETRY_ACCELEROMETER_X, json_mknumber(data->accelerometer.x));
   json_append_member(_node, TELEMETRY_ACCELEROMETER_Y, json_mknumber(data->accelerometer.y));
   json_append_member(_node, TELEMETRY_ACCELEROMETER_Z, json_mknumber(data->accelerometer.z));
+#endif
   char *tmp = json_encode(_node);
   json_delete(_node);
   return tmp;

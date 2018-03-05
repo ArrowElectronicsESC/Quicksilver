@@ -6,6 +6,9 @@ include libraries/acn-sdk-c/Makefile.wolf
 
 NAME := QuickSilver_ArrowConnect
 
+$(NAME)_INCLUDES   := . \
+                      daemons/device_onboarding/
+
 $(NAME)_SOURCES    := ArrowConnect.c
 
 #$(NAME)_SOURCES    += acnsdkc/debug.c
@@ -14,17 +17,18 @@ $(NAME)_SOURCES    += acnsdkc/time/time.c
 $(NAME)_SOURCES    += acnsdkc/debug.c
 $(NAME)_SOURCES    += acnsdkc/sys/mac.c
 $(NAME)_SOURCES    += acnsdkc/arrow/storage.c
+$(NAME)_SOURCES    += acnsdkc/arrow/state.c
 $(NAME)_SOURCES    += acnsdkc/json/telemetry.c
+
+$(NAME)_SOURCES    += Drivers/Sensors/LIS2DH12/lis2dh12.c
+$(NAME)_SOURCES    += Drivers/Sensors/HTS221/hts221.c
+$(NAME)_SOURCES    += Drivers/LED/APA102/apa102.c
 
 #$(NAME)_SOURCES    += $(patsubst $(SDK_PATH)%,../acn-sdk-c/%,$(WOLF_SRC))
 
-#$(warning $(NAME))
-
-#$(warning $(wildcard ../../../libraries/acn-sdk-c/src/ntp/*.*))
 
 
 #___________________________________________
-#$(NAME)_SOURCES    += $(wildcard ../../../libraries/acn-sdk-c/src/ntp/*.c)
 $(NAME)_SOURCES    += $(SDK_PATH)/src/ntp/client.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/ntp/ntp.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/time/watchdog_weak.c
@@ -128,13 +132,14 @@ $(NAME)_INCLUDES += ./acnsdkc
 $(info $($(NAME)_INCLUDES))
 
 $(NAME)_DEFINES    += DEBUG
-$(NAME)_DEFINES    += DEBUG_WOLFSSL
+#$(NAME)_DEFINES    += DEBUG_WOLFSSL
 $(NAME)_DEFINES    += HTTP_DEBUG
 $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
 $(NAME)_DEFINES    += ARCH_SSL
 
-WIFI_CONFIG_DCT_H  := wifi_config_dct.h
+#WIFI_CONFIG_DCT_H  := wifi_config_dct.h
 
 $(NAME)_COMPONENTS := utilities/command_console \
-					  utilities/command_console/ping
+					  utilities/command_console/ping \
+					  daemons/device_onboarding
