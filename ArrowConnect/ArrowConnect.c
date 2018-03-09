@@ -18,6 +18,8 @@
 #include <debug.h>
 
 #include <math.h>
+#include "./ap_common.h"
+#include "./ap_config.h"
 #include "resources.h"
 #include "wiced_management.h"
 #include "command_console_ping.h"
@@ -116,6 +118,10 @@ static lin_t lin_hum;
 static lin_t lin_temp;
 static wiced_semaphore_t app_semaphore;
 static uint32_t onboarding_status;
+static aws_app_info_t  app_info =
+{
+    .mqtt_client_id = 0
+};
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -455,97 +461,6 @@ int rgb_handler(const char *data)
     return 0;
 }
 
-/* When WiFi onboarding service is started, application will wait for
- * this callback(onboarding either failed or succeed), application then may
- * decide the next step. For example - if onboarding is success, application
- * may call the wifi_onboarding_stop and trigger a reboot.
- * On onboarding failure, application may retry certain number of times by starting the
- * onboarding service again(after stopping it first)
- */
-static void app_wifi_onboarding_callback( uint32_t result )
-{
-    WPRINT_APP_INFO( ( "[App] WiFi Onboarding callback..." ) );
-    if( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("Onboarding Failed\r\n" ) );
-    }
-    else
-    {
-        WPRINT_APP_INFO( ("Onboarding successfull\r\n" ) );
-    }
-
-    onboarding_status = result;
-
-    wiced_rtos_set_semaphore(&app_semaphore);
-}
-
-wiced_result_t quicksilver_ap_init(void)
-{
-    wiced_bool_t* device_configured;
-    wiced_result_t result;
-
-    result = wiced_dct_read_lock( (void**) &device_configured, WICED_FALSE, DCT_WIFI_CONFIG_SECTION, OFFSETOF(platform_dct_wifi_config_t, device_configured), sizeof(wiced_bool_t) );
-
-    if( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("[App] Error fetching platform DCT section\n") );
-        wiced_dct_read_unlock(device_configured, WICED_FALSE);
-        return result;
-    }
-
-    if( *device_configured != WICED_TRUE )
-    {
-        wiced_rtos_init_semaphore(&app_semaphore);
-
-        WPRINT_APP_INFO( ("[App] Starting Wifi Onboarding service...\n") );
-
-        result = wiced_wifi_device_onboarding_start(&ap_ip_settings, app_wifi_onboarding_callback);
-
-        if( result != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO( ("[App] Error Starting the on-boarding of device\n") );
-            wiced_dct_read_unlock(device_configured, WICED_FALSE);
-            return result;
-        }
-
-        WPRINT_APP_INFO( ("[App] Waiting for Onboarding callback...\n") );
-
-        result = wiced_rtos_get_semaphore(&app_semaphore, WICED_NEVER_TIMEOUT);
-        if( result != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO( ( "[App] Sempahore get error or timeout\r\n" ) );
-            wiced_rtos_deinit_semaphore(&app_semaphore);
-            return result;
-        }
-
-        WPRINT_APP_INFO( ("[App] Stopping Wifi Onboarding service...\n") );
-        result = wiced_wifi_device_onboarding_stop();
-
-        if( result != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO( ("[App] Error Stopping the on-boarding service\n") );
-            wiced_rtos_deinit_semaphore(&app_semaphore);
-            return result;
-        }
-
-        wiced_framework_reboot();
-    }
-
-    WPRINT_APP_INFO( ( "[App] Normal Application start\n" ) );
-
-    result = wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
-    if ( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ( "[App] Failed to join network \n") );
-        wiced_dct_read_unlock(device_configured, WICED_FALSE);
-        return result;
-    }
-
-    WPRINT_APP_INFO( ( "[App] Started STA successfully with saved configuration\n" ) );
-    wiced_dct_read_unlock(device_configured, WICED_FALSE);
-    return WICED_SUCCESS;
-}
-
 wiced_result_t quicksilver_init(void)
 {
     /* Initialize I2C*/
@@ -572,7 +487,7 @@ wiced_result_t quicksilver_init(void)
         return WICED_ERROR;
     }
 
-    if(quicksilver_ap_init() != WICED_SUCCESS)
+    if(aws_app_init(&app_info) != WICED_SUCCESS)
     {
         return WICED_ERROR;
     }

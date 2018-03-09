@@ -1,15 +1,19 @@
+NAME := QuickSilver_ArrowConnect
 
 SDK_PATH = ../../../libraries/acn-sdk-c
 SDK_IMPL = $(current_dir)/acnsdkc
 #include $(SDK_PATH)/Makefile.wolf
 include libraries/acn-sdk-c/Makefile.wolf
 
-NAME := QuickSilver_ArrowConnect
+APPLICATION_DCT := ap_config_dct.c
 
 $(NAME)_INCLUDES   := . \
                       daemons/device_onboarding/
 
-$(NAME)_SOURCES    := ArrowConnect.c
+$(NAME)_SOURCES    := ArrowConnect.c 
+
+$(NAME)_SOURCES	   += ap_config.c \
+					  ap_common.c
 
 #$(NAME)_SOURCES    += acnsdkc/debug.c
 $(NAME)_SOURCES    += acnsdkc/bsd/socket.c
@@ -78,6 +82,10 @@ $(NAME)_SOURCES    += $(SDK_PATH)/src/mqtt/packet/src/MQTTSerializePublish.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/mqtt/packet/src/MQTTConnectClient.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/mqtt/packet/src/MQTTSubscribeClient.c
 $(NAME)_SOURCES    += $(SDK_PATH)/src/sys/reboot_weak.c
+$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/mqtt/acn.c  
+$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/mqtt/azure.c  
+$(NAME)_SOURCES    += $(SDK_PATH)/src/arrow/mqtt/ibm.c
+
 #______________________________________________________
 $(NAME)_SOURCES    += $(patsubst $(SDK_PATH)%,../acn-sdk-c/%,$(WOLF_SRC))
 # This may not be working in a Windows environment
@@ -138,8 +146,33 @@ $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
 $(NAME)_DEFINES    += ARCH_SSL
 
+$(NAME)_RESOURCES += images/cypresslogo.png \
+                     images/cypresslogo_line.png \
+                     images/favicon.ico \
+                     images/scan_icon.png \
+                     images/wps_icon.png \
+                     images/64_0bars.png \
+                     images/64_1bars.png \
+                     images/64_2bars.png \
+                     images/64_3bars.png \
+                     images/64_4bars.png \
+                     images/64_5bars.png \
+                     images/tick.png \
+                     images/cross.png \
+                     images/lock.png \
+                     images/progress.gif \
+                     scripts/general_ajax_script.js \
+                     scripts/wpad.dat \
+                     apps/aws_iot/aws_config.html \
+                     config/scan_page_outer.html \
+                     styles/buttons.css \
+                     styles/border_radius.htc
+
 #WIFI_CONFIG_DCT_H  := wifi_config_dct.h
 
 $(NAME)_COMPONENTS := utilities/command_console \
 					  utilities/command_console/ping \
-					  daemons/device_onboarding
+					  daemons/device_onboarding \
+					  daemons/HTTP_server \
+                      daemons/DNS_redirect \
+                      protocols/DNS
