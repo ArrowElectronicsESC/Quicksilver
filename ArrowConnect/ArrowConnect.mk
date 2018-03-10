@@ -28,7 +28,6 @@ $(NAME)_SOURCES	:= $(PROJ_DIR)/ArrowConnect.c \
                    $(PROJ_DIR)/acnsdkc/debug.c \
                    $(PROJ_DIR)/acnsdkc/sys/mac.c \
                    $(PROJ_DIR)/acnsdkc/arrow/storage.c \
-                   $(PROJ_DIR)/acnsdkc/arrow/state.c \
                    $(PROJ_DIR)/acnsdkc/json/telemetry.c \
                    $(PROJ_DIR)/Drivers/Sensors/LIS2DH12/lis2dh12.c \
                    $(PROJ_DIR)/Drivers/Sensors/HTS221/hts221.c \

@@ -523,6 +523,12 @@ wiced_result_t quicksilver_init(void)
         return WICED_ERROR;
     }
 
+    /* Initialize GPIO*/
+    if(gpio_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
     /* Initialize the RGB */
     if(rgb_init() != WICED_SUCCESS)
     {
