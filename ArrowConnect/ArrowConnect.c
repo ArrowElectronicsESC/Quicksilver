@@ -62,7 +62,7 @@ static const wiced_ip_setting_t ap_ip_settings =
 };
 
 static aws_app_info_t  app_info = {
-    .mqtt_client_id = 0,
+    .mqtt_client_id = {0},
 };
 
 /******************************************************
@@ -170,83 +170,91 @@ float linear_interpolation(lin_t *lin, int16_t x)
         / (lin->x1 - lin->x0);
 }
 
+wiced_result_t parseCommand_RGB(JsonNode * node)
+{
+    apa102_color_t commandColor;
+    char json_str_buffer[64] = {0};
+
+    // jsonValue will contain a string of RGB values. Ex. "[10, 255, 255, 0]"
+    JsonNode * jsonValue = json_find_member(node, "value");
+    // valueObject will ultimately contain an array of RGB values
+    JsonNode * valueObject = json_mkobject();
+
+    if(jsonValue)
+    {
+        // Rebuild a JSON string so it can be easily parsed
+        sprintf(json_str_buffer, "{\"value\":%s}",jsonValue->string_);
+        // Parse the new JSON string
+        valueObject = json_decode(json_str_buffer);
+        if(valueObject)
+        {
+            JsonNode *arrayKey = json_find_member(valueObject, "value");
+            JsonNode *arrayElement;
+            uint8_t arrayIndex = 0;
+            json_foreach(arrayElement, arrayKey)
+            {
+                switch(arrayIndex)
+                {
+                    case 0:
+                        commandColor.brightness = arrayElement->number_ < 0x1F ? arrayElement->number_: 0x1F;
+                        break;
+                    case 1:
+                        commandColor.red = arrayElement->number_;
+                        break;
+                    case 2:
+                        commandColor.green = arrayElement->number_;
+                        break;
+                    case 3:
+                        commandColor.blue = arrayElement->number_;
+                        break;
+                    default:
+                        DBG("Number of RGB command values greater than expected");
+                        json_delete(valueObject);
+                        return WICED_ERROR;
+                        break;
+                }
+
+                arrayIndex++;
+            }
+
+            apa102_led_color_set(&rgb_ctx, commandColor);
+        }
+        else
+        {
+            DBG("Failed to parse new value object");
+            json_delete(valueObject);
+            return WICED_ERROR;
+        }
+    }
+    else
+    {
+        DBG("Failed to find member: \"value\"");
+        json_delete(valueObject);
+        return WICED_ERROR;
+    }
+
+    json_delete(valueObject);
+    return WICED_SUCCESS;
+}
+
 /******************************************************
  *               Application Function Definitions
  ******************************************************/
 int state_handler(char *str)
 {
     int Status = 0;
-    char json_str_buffer[64] = {0};
-    DBG("State Handler Payload: %s",str);
+
 
     JsonNode *main_ = json_decode(str);
     JsonNode *deviceStateNode = NULL;
 
-    DBG("State Handler!!!\r\n");
-
     if(main_)
     {
-        json_foreach(deviceStateNode, main_) {
+        json_foreach(deviceStateNode, main_)
+        {
             if(strcmp(deviceStateNode->key, "rgbValues") == 0)
             {
-                int Red = -1;
-                int Green = -1;
-                int Blue = -1;
-                JsonNode *OriginalValue = NULL;
-                OriginalValue = json_find_member(deviceStateNode, "value");
-
-                JsonNode *ValueObject = json_mkobject();
-                if(OriginalValue)
-                {
-                    sprintf(json_str_buffer, "{\"value\":%s}",OriginalValue->string_);
-                    DBG("Original value: %s",OriginalValue->string_);
-                    DBG("Re-formed value: %s", json_str_buffer);
-                    ValueObject = json_decode(json_str_buffer);
-                    if(ValueObject)
-                    {
-                        JsonNode *ArrayKey = json_find_member(ValueObject, "value");
-                        JsonNode *ArrayElement = NULL;
-                        int ListIndex = 0;
-                        json_foreach(ArrayElement, ArrayKey){
-                            switch(ListIndex)
-                            {
-                            case 0:
-                                Red = ArrayElement->number_;
-                                break;
-                            case 1:
-                                Green = ArrayElement->number_;
-                                break;
-                            case 2:
-                                Blue = ArrayElement->number_;
-                                break;
-                            default:
-                                DBG("Should not get here!!!");
-                                break;
-                            }
-
-                            ListIndex++;
-                        }
-
-                        DBG("Got colors: %d %d %d", Red, Green, Blue);
-                        apa102_color_t C = {
-                                .red =Red,
-                                .green = Green,
-                                .blue =Blue
-                        };
-                        apa102_led_color_set(&rgb_ctx, C);
-
-                        //add_state("rgbValues","[123,255,45]");
-                        //arrow_post_state_update(current_device());
-                    }
-                    else
-                    {
-                        DBG("Failed to parse new value object");
-                    }
-                }
-                else
-                {
-                    DBG("Failed to find member: \"value\"");
-                }
+                parseCommand_RGB(deviceStateNode);
             }
             else
             {

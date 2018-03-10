@@ -53,7 +53,7 @@ void spiBitbang(apa102_ctx_t *ctx, uint8_t * data, uint16_t length)
 
             ctx->pin_set(ctx, ctx->clk_in_pin);
 
-            data[i] = (data[i] << 1); // right shift by 1
+            data[i] = (data[i] << 1); // left shift by 1
         }
     }
 }
@@ -67,7 +67,6 @@ void spiBitbang(apa102_ctx_t *ctx, uint8_t * data, uint16_t length)
   */
 int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
 {
-    unsigned int mask = 1 <<31;
     uint8_t data_array[12];
 
     data_array[0] = 0x00;
@@ -83,7 +82,7 @@ int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
     data_array[10] = 0xFF;
     data_array[11] = 0xFF;
 
-    spiBitbang(ctx, data_array, 12);
+    spiBitbang(ctx, data_array, sizeof(data_array));
 
     return 0;
 }
@@ -141,7 +140,7 @@ int32_t apa102_led_ramp_sequence(apa102_ctx_t *ctx)
 {
     apa102_color_t color =
     {
-        .brightness = 0x1F,
+        .brightness = 0x01,
         .red = 0,
         .green = 0,
         .blue = 0,
