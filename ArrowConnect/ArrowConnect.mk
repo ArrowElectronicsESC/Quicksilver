@@ -18,7 +18,7 @@ $(NAME)_INCLUDES := . \
                     $(SDK_ROOT)/include \
                     $(SDK_ROOT)/src/wolfSSL \
                     $(SDK_ROOT)/src/wolfSSL/wolfssl \
-                    ./acnsdkc
+                    $(PROJ_DIR)/acnsdkc \
 
 $(NAME)_SOURCES	:= $(PROJ_DIR)/ArrowConnect.c \
                    $(PROJ_DIR)/ap_config.c \

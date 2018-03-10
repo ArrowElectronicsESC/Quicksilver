@@ -1,7 +1,7 @@
 #ifndef ACN_SDK_C_PRIVATE_H_
 #define ACN_SDK_C_PRIVATE_H_
 
-#define __IBM__                     /* Use IBM Watson for Data analysis*/
+//#define __IBM__                     /* Use IBM Watson for Data analysis*/
 //#define NO_EVENTS
 
 /* Application */                   /* TODO: Update these keys to the "Staging Area" keys for Quicksilver */
@@ -23,6 +23,6 @@
 #define DEVICE_UID_PREFIX           "Qs-device"
 #define DEVICE_UID_SUFFIX           "device"
 
-#define TELEMETRY_DELAY             100
+#define TELEMETRY_DELAY             3000
 
 #endif

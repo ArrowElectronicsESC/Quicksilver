@@ -1,54 +1,25 @@
-#include <stdlib.h>
 #include "wiced.h"
-#include "wiced_tls.h"
-#include "command_console.h"
-#include "device_onboarding.h"
 #include "ArrowConnect.h"
-#include "arrow/device_command.h"
-#include "platform.h"
-
 #include "quicksilver.h"
-
-#include "arrow/api/gateway/info.h"
-#include "arrow/api/gateway/gateway.h"
-
-
-#include <arrow/routine.h>
-#include <arrow/utf8.h>
 #include <debug.h>
-
-#include <math.h>
-#include "./ap_common.h"
-#include "./ap_config.h"
-#include "resources.h"
-#include "wiced_management.h"
-#include "command_console_ping.h"
-
-#include "Drivers/Sensors/LIS2DH12/lis2dh12.h"
-#include "Drivers/Sensors/HTS221/hts221.h"
-#include "Drivers/LED/APA102/apa102.h"
-
-/******************************************************
- *                      Macros
- ******************************************************/
-
-#define PING_TIMEOUT_MS          2000
-#define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
-#define VERIFY_SUCCESS(x)       if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
 /******************************************************
  *                    Constants
  ******************************************************/
-
 #define RGB_CLOCK WICED_GPIO_10
 #define RGB_DATA WICED_GPIO_8
-
 #define BUFFER_LENGTH     (2048)
 #define MAX_LINE_LENGTH  (128)
 #define MAX_HISTORY_LENGTH (20)
 #define MAX_NUM_COMMAND_TABLE  (8)
-
 #define NUM_I2C_MESSAGE_RETRIES   (3)
+
+/******************************************************
+ *                      Macros
+ ******************************************************/
+#define PING_TIMEOUT_MS          2000
+#define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
+#define VERIFY_SUCCESS(x)       if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
 /******************************************************
  *                   Enumerations
@@ -90,6 +61,10 @@ static const wiced_ip_setting_t ap_ip_settings =
     INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
 };
 
+static aws_app_info_t  app_info = {
+    .mqtt_client_id = 0,
+};
+
 /******************************************************
  *               Static Function Declarations
  ******************************************************/
@@ -116,12 +91,6 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
-static wiced_semaphore_t app_semaphore;
-static uint32_t onboarding_status;
-static aws_app_info_t  app_info =
-{
-    .mqtt_client_id = 0
-};
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -204,6 +173,91 @@ float linear_interpolation(lin_t *lin, int16_t x)
 /******************************************************
  *               Application Function Definitions
  ******************************************************/
+int state_handler(char *str)
+{
+    int Status = 0;
+    char json_str_buffer[64] = {0};
+    DBG("State Handler Payload: %s",str);
+
+    JsonNode *main_ = json_decode(str);
+    JsonNode *deviceStateNode = NULL;
+
+    DBG("State Handler!!!\r\n");
+
+    if(main_)
+    {
+        json_foreach(deviceStateNode, main_) {
+            if(strcmp(deviceStateNode->key, "rgbValues") == 0)
+            {
+                int Red = -1;
+                int Green = -1;
+                int Blue = -1;
+                JsonNode *OriginalValue = NULL;
+                OriginalValue = json_find_member(deviceStateNode, "value");
+
+                JsonNode *ValueObject = json_mkobject();
+                if(OriginalValue)
+                {
+                    sprintf(json_str_buffer, "{\"value\":%s}",OriginalValue->string_);
+                    DBG("Original value: %s",OriginalValue->string_);
+                    DBG("Re-formed value: %s", json_str_buffer);
+                    ValueObject = json_decode(json_str_buffer);
+                    if(ValueObject)
+                    {
+                        JsonNode *ArrayKey = json_find_member(ValueObject, "value");
+                        JsonNode *ArrayElement = NULL;
+                        int ListIndex = 0;
+                        json_foreach(ArrayElement, ArrayKey){
+                            switch(ListIndex)
+                            {
+                            case 0:
+                                Red = ArrayElement->number_;
+                                break;
+                            case 1:
+                                Green = ArrayElement->number_;
+                                break;
+                            case 2:
+                                Blue = ArrayElement->number_;
+                                break;
+                            default:
+                                DBG("Should not get here!!!");
+                                break;
+                            }
+
+                            ListIndex++;
+                        }
+
+                        DBG("Got colors: %d %d %d", Red, Green, Blue);
+                        apa102_color_t C = {
+                                .red =Red,
+                                .green = Green,
+                                .blue =Blue
+                        };
+                        apa102_led_color_set(&rgb_ctx, C);
+
+                        //add_state("rgbValues","[123,255,45]");
+                        //arrow_post_state_update(current_device());
+                    }
+                    else
+                    {
+                        DBG("Failed to parse new value object");
+                    }
+                }
+                else
+                {
+                    DBG("Failed to find member: \"value\"");
+                }
+            }
+            else
+            {
+                DBG("Found node: %s", deviceStateNode->key);
+            }
+        }
+    }
+
+  return Status;
+}
+
 wiced_result_t i2c_sensor_probe(void)
 {
     /* Probe I2C bus for accelerometer */
