@@ -215,6 +215,7 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
                     default:
                         DBG("Number of RGB command values greater than expected");
                         json_delete(valueObject);
+                        json_delete(jsonValue);
                         return WICED_ERROR;
                         break;
                 }
@@ -228,6 +229,7 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
         {
             DBG("Failed to parse new value object");
             json_delete(valueObject);
+            json_delete(jsonValue);
             return WICED_ERROR;
         }
     }
@@ -235,10 +237,12 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
     {
         DBG("Failed to find member: \"value\"");
         json_delete(valueObject);
+        json_delete(jsonValue);
         return WICED_ERROR;
     }
 
     json_delete(valueObject);
+    json_delete(jsonValue);
     return WICED_SUCCESS;
 }
 
@@ -267,6 +271,8 @@ int state_handler(char *str)
             }
         }
     }
+
+
 
   return Status;
 }
@@ -493,7 +499,7 @@ int update_sensor_data(void * data)
 
 int rgb_handler(const char *data)
 {
-    apa102_color_t color = {0};
+    static apa102_color_t color = {0};
 
     DBG("---------------------------------------------");
     DBG("rgb_handler: %s", data);
@@ -501,6 +507,11 @@ int rgb_handler(const char *data)
     JsonNode * rgb_color = json_decode(data);
     if(rgb_color)
     {
+        JsonNode *brightness = json_find_member(rgb_color, "brightness");
+        if(brightness && brightness->tag == JSON_NUMBER)
+        {
+            color.brightness = (int)brightness->number_;
+        }
         JsonNode *red_val = json_find_member(rgb_color, "red");
         if(red_val && red_val->tag == JSON_NUMBER)
         {
@@ -516,8 +527,8 @@ int rgb_handler(const char *data)
         {
             color.blue = (int)blue_val->number_;
         }
-        json_delete(rgb_color);
 
+        json_delete(rgb_color);
         apa102_led_color_set(&rgb_ctx, color);
     }
     else
