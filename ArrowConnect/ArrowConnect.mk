@@ -16,6 +16,7 @@ $(NAME)_INCLUDES := . \
                     daemons/device_onboarding/ \
                     $(SDK_ROOT) \
                     $(SDK_ROOT)/include \
+                    $(SDK_ROOT)/include/arrow \
                     $(SDK_ROOT)/src/wolfSSL \
                     $(SDK_ROOT)/src/wolfSSL/wolfssl \
                     $(PROJ_DIR)/acnsdkc \
