@@ -13,11 +13,15 @@
 #define MAX_HISTORY_LENGTH (20)
 #define MAX_NUM_COMMAND_TABLE  (8)
 #define NUM_I2C_MESSAGE_RETRIES   (3)
+#define PING_TIMEOUT_MS          2000
+
+/* Thread parameters */
+#define THREAD_PRIORITY     (10)
+#define THREAD_STACK_SIZE   (1024)
 
 /******************************************************
  *                      Macros
  ******************************************************/
-#define PING_TIMEOUT_MS          2000
 #define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
 #define VERIFY_SUCCESS(x)       if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
@@ -91,6 +95,7 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
+static wiced_thread_t acnThreadHandle;
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -565,6 +570,9 @@ wiced_result_t quicksilver_init(void)
 
 wiced_result_t arrow_cloud_init(void)
 {
+    // Add command handlers, this MUST be done before initializing the gateway
+    add_cmd_handler("rgb", rgb_handler);
+
     /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
     if(arrow_initialize_routine() != ROUTINE_SUCCESS)
     {
@@ -577,10 +585,17 @@ wiced_result_t arrow_cloud_init(void)
         return WICED_ERROR;
     }
 
-    // Add command handlers
-    add_cmd_handler("rgb", rgb_handler);
-
     return WICED_SUCCESS;
+}
+
+/* Define the thread function that will communicate with the Arrow Connect/Cloud */
+void acnThread(wiced_thread_arg_t arg)
+{
+    while(1)
+    {
+        /* Send the latest data to Arrow Connect */
+        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+    }
 }
 
 void application_start( )
@@ -592,11 +607,6 @@ void application_start( )
 
     VERIFY_SUCCESS(arrow_cloud_init());
 
-    while(1)
-    {
-        /* Send the latest data to Arrow Connect */
-        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
-    }
-
-
+    /* Initialize and start a new thread */
+    wiced_rtos_create_thread(&acnThreadHandle, THREAD_PRIORITY, "acnThread", acnThread, THREAD_STACK_SIZE, NULL);
 }
