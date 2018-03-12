@@ -15,10 +15,6 @@
 #define NUM_I2C_MESSAGE_RETRIES   (3)
 #define PING_TIMEOUT_MS          2000
 
-/* Thread parameters */
-#define THREAD_PRIORITY     (10)
-#define THREAD_STACK_SIZE   (1024)
-
 /******************************************************
  *                      Macros
  ******************************************************/
@@ -95,7 +91,6 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
-static wiced_thread_t acnThreadHandle;
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -178,7 +173,7 @@ float linear_interpolation(lin_t *lin, int16_t x)
 wiced_result_t parseCommand_RGB(JsonNode * node)
 {
     apa102_color_t commandColor;
-    char json_str_buffer[64] = {0};
+    char json_str_buffer[100] = {0};
 
     // jsonValue will contain a string of RGB values. Ex. "[10, 255, 255, 0]"
     JsonNode * jsonValue = json_find_member(node, "value");
@@ -599,16 +594,6 @@ wiced_result_t arrow_cloud_init(void)
     return WICED_SUCCESS;
 }
 
-/* Define the thread function that will communicate with the Arrow Connect/Cloud */
-void acnThread(wiced_thread_arg_t arg)
-{
-    while(1)
-    {
-        /* Send the latest data to Arrow Connect */
-        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
-    }
-}
-
 void application_start( )
 {
     /* Initialize the WICED platform */
@@ -618,6 +603,9 @@ void application_start( )
 
     VERIFY_SUCCESS(arrow_cloud_init());
 
-    /* Initialize and start a new thread */
-    wiced_rtos_create_thread(&acnThreadHandle, THREAD_PRIORITY, "acnThread", acnThread, THREAD_STACK_SIZE, NULL);
+    while(1)
+    {
+        /* Send the latest data to Arrow Connect */
+        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+    }
 }
