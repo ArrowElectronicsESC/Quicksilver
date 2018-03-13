@@ -22,5 +22,5 @@
 DEFINE_APP_DCT(aws_config_dct_t)
 {
     .is_configured = WICED_FALSE,
-    .thing_name = AWS_DEFAULT_THING_NAME
+    .device_name = DEFAULT_DEVICE_NAME
 };

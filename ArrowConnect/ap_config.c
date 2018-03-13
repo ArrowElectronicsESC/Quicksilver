@@ -129,7 +129,6 @@ static int32_t        process_wps_go            ( const char* url_parameters, co
 static int32_t        process_scan              ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
 static int32_t        process_connect           ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
 static int32_t        process_upgrade_chunk     ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
-static int32_t        process_configure_settings     ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
 static wiced_result_t scan_handler              ( wiced_scan_handler_result_t* malloced_scan_result );
 
 /******************************************************
@@ -166,7 +165,6 @@ START_OF_HTTP_PAGE_DATABASE(config_http_page_database)
     { "/connect",                        "text/html",                         WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_connect,               0 }           },
     { "/wps_go",                         "text/html",                         WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_wps_go,                0 }           },
     { "/config/upgrade_chunk.html",      "text/html",                         WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_upgrade_chunk,         0 }           },
-    { "/config/configuration_settings.html",  "text/html",                    WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_configure_settings,    0 }           },
     /* Add more pages here */
 END_OF_HTTP_PAGE_DATABASE();
 
@@ -269,63 +267,6 @@ static int32_t process_upgrade_chunk( const char* url_parameters, const char* ur
         memset(offset_string, 0x00, sizeof(offset_string));
         sprintf(offset_string, "%lu", expected_offset);
         wiced_http_response_stream_write( stream, offset_string, strlen(offset_string));
-    }
-
-    return 0;
-}
-
-static int32_t process_configure_settings( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data )
-{
-    char*             temp1 = NULL;
-    char*             temp2 = NULL;
-    wiced_result_t    ret = WICED_SUCCESS;
-
-    UNUSED_PARAMETER( url_parameters );
-    UNUSED_PARAMETER( arg );
-    UNUSED_PARAMETER( http_data );
-
-    printf("url_query_string:[%s]\n", url_query_string);
-
-    if(strstr(url_query_string, "mode=set") != NULL)
-    {
-        aws_config_dct_t  aws_dct;
-        aws_dct.thing_name[0] = '\0';
-        temp1 = strstr(url_query_string, "thing=") + strlen("thing=");
-        if(temp1 != NULL)
-        {
-            temp2 = strchr(temp1, '&');
-            if(temp2 != NULL)
-            {
-                memcpy(aws_dct.thing_name, temp1, (int)temp2-(int)temp1);
-                aws_dct.thing_name[(int)temp2-(int)temp1] = '\0';
-            }
-            else
-            {
-                strcpy(aws_dct.thing_name, temp1);
-            }
-        }
-
-        printf("Thing Name:[%s]\n", aws_dct.thing_name);
-        if(aws_dct.thing_name[0] != '\0')
-        {
-            wiced_dct_write( &aws_dct, DCT_APP_SECTION, 0, sizeof(aws_config_dct_t) );
-        }
-    }
-    else
-    {
-        aws_config_dct_t  *aws_dct_ptr;
-
-        ret = wiced_dct_read_lock( (void**) &aws_dct_ptr, WICED_FALSE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
-        if ( ret != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
-            return WICED_ERROR;
-        }
-
-        wiced_http_response_stream_write(stream, aws_dct_ptr->thing_name, strlen(aws_dct_ptr->thing_name) );
-
-        /* Finished accessing the AWS APP DCT */
-        wiced_dct_read_unlock( aws_dct_ptr, WICED_FALSE );
     }
 
     return 0;

@@ -53,7 +53,7 @@ wiced_result_t aws_app_init( aws_app_info_t *app_info )
                 aws_config_dct_t aws_dct =
                 {
                     .is_configured = WICED_FALSE,
-                    .thing_name = AWS_DEFAULT_THING_NAME
+                    .device_name = DEFAULT_DEVICE_NAME
                 };
 
                 wiced_gpio_output_high( WICED_LED2 );
@@ -80,40 +80,8 @@ wiced_result_t aws_app_init( aws_app_info_t *app_info )
     /* Bringup the network interface */
     wiced_network_up( WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL );
 
-    wiced_hostname_lookup( AWS_IOT_HOST_NAME, &broker_address, 10000, WICED_STA_INTERFACE );
-
-    WPRINT_APP_INFO(("[MQTT] Connecting to broker %u.%u.%u.%u ...\n\n", (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 24),
-                    (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 16),
-                    (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 8),
-                    (uint8_t)(GET_IPV4_ADDRESS(broker_address) >> 0)));
-
     wiced_rtos_init_semaphore( &aws_app_info->msg_semaphore );
     wiced_rtos_init_semaphore( &aws_app_info->wake_semaphore );
 
-    /* ------------- Read thing-name from DCT ------------- */
-    ret = wiced_dct_read_lock( (void**) &aws_app_dct, WICED_FALSE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
-    if ( ret != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
-        return ret;
-    }
-
-    strncpy(app_info->thing_name, aws_app_dct->thing_name, sizeof(app_info->thing_name)-1);
-    snprintf(app_info->shadow_state_topic, sizeof(app_info->shadow_state_topic), THING_STATE_TOPIC_STR_BUILDER, app_info->thing_name);
-    snprintf(app_info->shadow_delta_topic, sizeof(app_info->shadow_delta_topic), THING_DELTA_TOPIC_STR_BUILDER, app_info->thing_name);
-
-    printf("Thing Name: %s\n", aws_app_dct->thing_name);
-    printf("Shadow State Topic: %s\n", app_info->shadow_state_topic);
-    printf("Shadow Delta Topic: %s\n", app_info->shadow_delta_topic);
-
-    /* Finished accessing the AWS APP DCT */
-    ret = wiced_dct_read_unlock( aws_app_dct, WICED_FALSE );
-    if ( ret != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO(( "DCT Read Unlock Failed. Error = [%d]\n", ret ));
-        return ret;
-    }
-    /* ---------------------------------------------------- */
-
-    return ret;
+    return WICED_SUCCESS;
 }
