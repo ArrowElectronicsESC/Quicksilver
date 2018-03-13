@@ -9,6 +9,7 @@
  */
 
 #include "wiced.h"
+#include "arrow/gateway.h"
 
 #pragma once
 
@@ -37,6 +38,7 @@ typedef struct aws_config_dct_s
 {
     wiced_bool_t  is_configured;
     char          thing_name[32];
+    arrow_gateway_t info;
 } aws_config_dct_t;
 
 /******************************************************

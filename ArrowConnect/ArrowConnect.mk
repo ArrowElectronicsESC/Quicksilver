@@ -12,14 +12,12 @@ $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
 $(NAME)_DEFINES    += ARCH_SSL
 
-$(NAME)_INCLUDES := . \
-                    daemons/device_onboarding/ \
+GLOBAL_INCLUDES := . \
                     $(SDK_ROOT) \
                     $(SDK_ROOT)/include \
-                    $(SDK_ROOT)/include/arrow \
-                    $(SDK_ROOT)/src/wolfSSL \
-                    $(SDK_ROOT)/src/wolfSSL/wolfssl \
+                    $(SDK_ROOT)/sys \
                     $(PROJ_DIR)/acnsdkc \
+                    $(SDK_ROOT)/src/wolfSSL \
 
 $(NAME)_SOURCES	:= $(PROJ_DIR)/ArrowConnect.c \
                    $(PROJ_DIR)/ap_config.c \
