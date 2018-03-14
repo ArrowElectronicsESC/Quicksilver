@@ -65,11 +65,6 @@
 #define CONNECT_PROTOCOL            "http\n"
 #endif
 
-//#define CAPTIVE_PORTAL_REDIRECT_PAGE \
-//    "<html><head>" \
-//    "<meta http-equiv=\"refresh\" content=\"0; url=/config/device_settings.html\">" \
-//    "</head></html>"
-
 /******************************************************
  *                    Constants
  ******************************************************/
