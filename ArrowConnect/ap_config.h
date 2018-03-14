@@ -51,6 +51,7 @@ typedef struct aws_config_dct_s
     char          device_name[32];
     char          gateway_hid[64];
     char          device_hid[64];
+    char          device_eid[64];
 } aws_config_dct_t;
 
 /******************************************************

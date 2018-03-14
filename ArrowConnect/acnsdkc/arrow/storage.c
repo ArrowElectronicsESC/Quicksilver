@@ -89,6 +89,11 @@ int restore_device_info(arrow_device_t *device)
     }
 
     P_COPY(device->hid, p_stack(aws_dct_ptr->device_hid));
+#if defined(__IBM__)
+    {
+        P_COPY(device->eid, p_stack(aws_dct_ptr->device_eid));
+    }
+#endif
 
     result = wiced_dct_read_unlock( aws_dct_ptr, WICED_FALSE );
     if ( result != WICED_SUCCESS )
@@ -98,17 +103,23 @@ int restore_device_info(arrow_device_t *device)
     }
 
     /* Safety check the Device HID */
-    if(utf8check(aws_dct_ptr->device_hid) && strlen(aws_dct_ptr->device_hid) > 0)
+    if(utf8check(aws_dct_ptr->device_hid) && (strlen(aws_dct_ptr->device_hid) > 0))
     {
         WPRINT_APP_INFO(("Existing Device, Load HID: %s\n", device->hid.value));
         return 0;
     }
-    else
+#if defined (__IBM__)
+    /* Safety check the Device HID */
+    if(utf8check(aws_dct_ptr->device_hid) && (strlen(aws_dct_ptr->device_hid) > 0))
     {
-        // New Gateway
-        WPRINT_APP_INFO(("New Device\n"));
-        return -1;
+        WPRINT_APP_INFO(("Existing IBM Device, Load EID: %s\n", device->hid.value));
+        return 0;
     }
+#endif
+
+    // New Gateway
+    WPRINT_APP_INFO(("New Device\n"));
+    return -1;
 }
 
 void save_device_info(arrow_device_t *device)
@@ -125,6 +136,11 @@ void save_device_info(arrow_device_t *device)
     strcpy(aws_dct_ptr->device_hid, P_VALUE(device->hid));
     WPRINT_APP_INFO(("Storing New Device HID: %s\n", aws_dct_ptr->device_hid));
 
+#if defined(__IBM__)
+    strcpy(aws_dct_ptr->device_eid, P_VALUE(device->eid));
+    WPRINT_APP_INFO(("Storing New IBM Device EID: %s\n", aws_dct_ptr->device_eid));
+#endif
+
     wiced_dct_write( (const void*)aws_dct_ptr, DCT_APP_SECTION, 0, sizeof(aws_config_dct_t) );
 
     /* Finished accessing the AWS APP DCT */
@@ -135,43 +151,4 @@ void save_device_info(arrow_device_t *device)
     }
 
     return;
-}
-
-void save_wifi_setting(const char *ssid, const char *pass, int sec) {
-//  if (FLASH_update((uint32_t)mem.ssid, ssid, strlen(ssid)+1) < 0) {
-//    DBG("Failed updating the wifi configuration in FLASH");
-//  }
-//  if (FLASH_update((uint32_t)mem.ssid, ssid, strlen(pass)+1) < 0) {
-//    DBG("Failed updating the wifi configuration in FLASH");
-//  }
-//  if (FLASH_update((uint32_t)&mem.sec, &sec, sizeof(sec)) < 0) {
-//    DBG("Failed updating the wifi configuration in FLASH");
-//  }
-}
-
-int restore_wifi_setting(char *ssid, char *pass, int *sec) {
-#if defined(DEFAULT_WIFI_SSID) \
-  && defined(DEFAULT_WIFI_PASS) \
-  && defined(DEFAULT_WIFI_SEC)
-  strcpy(ssid, DEFAULT_WIFI_SSID);
-  strcpy(pass, DEFAULT_WIFI_PASS);
-  *sec = DEFAULT_WIFI_SEC;
-#else
-//  if ( mem.magic != FLASH_MAGIC_NUMBER ) {
-//    FLASH_unlock_erase((uint32_t)&mem, sizeof(mem));
-//    return -1;
-//  }
-//  if ( !utf8check(mem.ssid) || !strlen(mem.ssid) ) {
-//    return -1;
-//  }
-//  strcpy(ssid, mem.ssid);
-//  DBG("--- flash load %s", mem.ssid);
-//  if ( !utf8check(mem.pass) || !strlen(mem.ssid) ) {
-//    return -1;
-//  }
-//  strcpy(pass, mem.pass);
-//  DBG("--- flash load %s", mem.pass);
-//  *sec = mem.sec;
-#endif
-  return 0;
 }
