@@ -35,16 +35,6 @@ extern "C" {
 /******************************************************
  *                 Type Definitions
  ******************************************************/
-//typedef struct aws_config_dct_s
-//{
-//    wiced_bool_t  is_wifi_configured;
-//    wiced_bool_t  is_gateway_configured;
-//    wiced_bool_t  is_device_configured;
-//    char          device_name[32];
-//    arrow_gateway_t* gateway_info;
-//    arrow_device_t* device_info;
-//} aws_config_dct_t;
-
 typedef struct aws_config_dct_s
 {
     wiced_bool_t  is_configured;

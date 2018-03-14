@@ -123,7 +123,6 @@ static int32_t        process_app_settings_page ( const char* url_parameters, co
 static int32_t        process_wps_go            ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
 static int32_t        process_scan              ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
 static int32_t        process_connect           ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
-static int32_t        process_upgrade_chunk     ( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data );
 static wiced_result_t scan_handler              ( wiced_scan_handler_result_t* malloced_scan_result );
 
 /******************************************************
@@ -159,7 +158,6 @@ START_OF_HTTP_PAGE_DATABASE(config_http_page_database)
     { "/styles/buttons.css",             "text/css",                          WICED_RESOURCE_URL_CONTENT,   .url_content.resource_data  = &resources_styles_DIR_buttons_css,            },
     { "/connect",                        "text/html",                         WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_connect,               0 }           },
     { "/wps_go",                         "text/html",                         WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_wps_go,                0 }           },
-    { "/config/upgrade_chunk.html",      "text/html",                         WICED_DYNAMIC_URL_CONTENT,    .url_content.dynamic_data   = {process_upgrade_chunk,         0 }           },
     /* Add more pages here */
 END_OF_HTTP_PAGE_DATABASE();
 
@@ -170,103 +168,6 @@ static uint16_t header_length = 0;
 /******************************************************
  *             Static Function Definitions
  ******************************************************/
-static int32_t process_upgrade_chunk( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data )
-{
-    uint32_t         offset      = 0;
-    uint32_t         file_size   = 0;
-    static uint32_t  expected_offset = 0;
-    uint32_t         received_offset = 0;
-    char             offset_string[13];
-
-    UNUSED_PARAMETER( url_parameters );
-    UNUSED_PARAMETER( arg );
-    UNUSED_PARAMETER( http_data );
-
-    offset    = atoi( strstr(url_query_string, "offset=") + strlen("offset=") );
-    file_size = atoi(strstr(url_query_string, "filesize=") + strlen("filesize=") );
-    received_offset = offset;
-
-    if (offset == 0)
-    {
-        expected_offset = 0;
-    }
-
-    if ( http_data->message_data_length == 0 )
-    {
-        uint32_t content_length = -1;
-        char *temp = NULL;
-
-        temp = strcasestr(url_query_string, "Content-Length") + strlen("Content-Length");
-        if(temp != NULL)
-        {
-            content_length = atoi( strstr(url_query_string, "Content-Length:") + strlen("Content-Length:") );
-        }
-        printf("content_length [%d]\n", (int)content_length);
-        memset(offset_string, 0x00, sizeof(offset_string));
-        sprintf(offset_string, "%d", (int)content_length);
-        wiced_http_response_stream_write( stream, offset_string, strlen(offset_string));
-        return 0;
-    }
-
-    if( expected_offset != offset )
-    {
-        memset(offset_string, 0x00, sizeof(offset_string));
-        sprintf(offset_string, "%lu", expected_offset);
-        wiced_http_response_stream_write( stream, offset_string, strlen(offset_string));
-        return 0;
-    }
-
-    if ( strstr(url_query_string, "file=certificate") != NULL )
-    {
-        if ( (offset + http_data->message_data_length) <= sizeof(security_dct.certificate ) )
-        {
-            memcpy(&security_dct.certificate[offset], http_data->data, http_data->message_data_length);
-        }
-    }
-    else
-    {
-        if ( (offset + http_data->message_data_length) <= sizeof(security_dct.private_key ) )
-        {
-            memcpy(&security_dct.private_key[offset], http_data->data, http_data->message_data_length);
-        }
-    }
-
-    offset += http_data->message_data_length;
-
-    if( offset == file_size )
-    {
-        expected_offset = 0;
-
-//        printf("---------------------------------------------------------\n");
-//        printf("security_dct.certificate:\n%s\n\n", security_dct.certificate);
-//        printf("security_dct.private_key:\n%s\n", security_dct.private_key);
-//        printf("---------------------------------------------------------\n");
-
-        /* Write the uploaded certificate and private key into security section of DCT */
-        if ( security_dct.certificate[0] != '\0' && security_dct.private_key[0] != '\0' )
-        {
-            wiced_dct_write( &security_dct, DCT_SECURITY_SECTION, 0, sizeof( security_dct ) );
-            security_dct.certificate[0] = '\0';
-            security_dct.private_key[0] = '\0';
-        }
-
-        /* Finally we will send to the server the size of the file, so it knows that we are done and no more */
-        /* chunks are needed to be sent */
-        memset(offset_string, 0x00, sizeof(offset_string));
-        sprintf(offset_string, "%lu", file_size);
-        wiced_http_response_stream_write( stream, offset_string, strlen(offset_string));
-    }
-    else
-    {
-        expected_offset = received_offset + http_data->message_data_length;
-        memset(offset_string, 0x00, sizeof(offset_string));
-        sprintf(offset_string, "%lu", expected_offset);
-        wiced_http_response_stream_write( stream, offset_string, strlen(offset_string));
-    }
-
-    return 0;
-}
-
 static int32_t process_app_settings_page( const char* url_parameters, const char* url_query_string, wiced_http_response_stream_t* stream, void* arg, wiced_http_message_body_t* http_data )
 {
     UNUSED_PARAMETER( url_parameters );
@@ -518,57 +419,6 @@ static int32_t process_connect( const char* url_parameters, const char* url_quer
     return 0;
 }
 
-/* Work around for handling POST Header and Payload coming separately to WICED HTTP server */
-static wiced_result_t aws_http_receive_callback ( wiced_http_response_stream_t* stream, uint8_t** data, uint16_t* data_length )
-{
-    wiced_result_t ret = WICED_SUCCESS;
-    char *temp = NULL;
-
-    if ( isHeader == WICED_TRUE && strnstr( (const char*)*data, *data_length, "upgrade_chunk.html", sizeof( "upgrade_chunk.html" ) - 1 ) == NULL )
-    {
-        //printf("May be GET request or not related to upload...\n");
-        return ret;
-    }
-
-    if ( isHeader == WICED_TRUE )
-    {
-        temp = strnstr( (const char*)*data, *data_length, CRLF_CRLF, sizeof( CRLF_CRLF ) - 1 );
-        if(temp != NULL)
-        {
-            if ( ((int)temp + strlen(CRLF_CRLF)) < ((int)*data + *data_length) )
-            {
-                //printf("POST also has payload along with it...\n");
-                return ret;
-            }
-        }
-    }
-
-    if( isHeader == WICED_TRUE )
-    {
-        if ( *data_length < sizeof(http_data) )
-        {
-            memcpy(http_data, *data, *data_length);
-            header_length = *data_length;
-        }
-        isHeader = WICED_FALSE;
-        ret = WICED_PARTIAL_RESULTS;
-    }
-    else
-    {
-        if ( (*data_length + header_length) < sizeof(http_data) )
-        {
-            memcpy(&http_data[header_length], *data, *data_length);
-            *data = http_data;
-            *data_length += header_length;
-        }
-        isHeader = WICED_TRUE;
-        header_length = 0;
-    }
-
-    return ret;
-}
-
-
 /******************************************************
  *               Function Definitions
  ******************************************************/
@@ -652,8 +502,6 @@ wiced_result_t aws_configure_device(void)
 #else
         wiced_http_server_start(http_server, HTTP_PORT, 10, config_http_page_database, WICED_CONFIG_INTERFACE, DEFAULT_URL_PROCESSOR_STACK_SIZE );
 #endif
-        wiced_http_server_register_callbacks(http_server , aws_http_receive_callback, NULL );
-
         /* Wait for configuration to complete */
         wiced_rtos_get_semaphore(&aws_config_semaphore, WICED_WAIT_FOREVER);
 
