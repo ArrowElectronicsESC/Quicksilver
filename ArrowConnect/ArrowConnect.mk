@@ -3,6 +3,7 @@ NAME := QuickSilver_ArrowConnect
 SDK_ROOT = ../../../libraries/acn-sdk-c
 PROJ_DIR := .
 
+WIFI_CONFIG_DCT_H := wifi_config_dct.h
 APPLICATION_DCT := ap_config_dct.c
 
 $(NAME)_DEFINES    += DEBUG
@@ -144,3 +145,6 @@ $(NAME)_COMPONENTS := utilities/command_console \
 					  daemons/HTTP_server \
                       daemons/DNS_redirect \
                       protocols/DNS
+                      
+#OTA_APPLICATION       := snip.ota2_extract-$(PLATFORM)
+#OTA_APP               := build/$(OTA_APPLICATION)/binary/$(OTA_APPLICATION).stripped.elf

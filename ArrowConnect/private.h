@@ -14,7 +14,7 @@
 
 /* gateway firmware */
 #define GATEWAY_SOFTWARE_NAME       "QsEval"
-#define GATEWAY_SOFTWARE_VERSION    "1.0"
+#define GATEWAY_SOFTWARE_VERSION    "1.0.0"
 
 /* device */
 #define DEVICE_NAME                 "QuicksilverDevice"
