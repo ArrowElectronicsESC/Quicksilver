@@ -24,11 +24,6 @@ static wiced_ip_address_t broker_address;
 wiced_result_t aws_app_init( aws_app_info_t *app_info )
 {
     wiced_result_t ret = WICED_SUCCESS;
-    aws_config_dct_t *aws_app_dct = NULL;
-
-    aws_app_info = app_info;
-
-    wiced_init( );
 
     /* Disable roaming to other access points */
     wiced_wifi_set_roam_trigger( -99 ); /* -99dBm ie. extremely low signal level */
@@ -79,9 +74,6 @@ wiced_result_t aws_app_init( aws_app_info_t *app_info )
 
     /* Bringup the network interface */
     wiced_network_up( WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL );
-
-    wiced_rtos_init_semaphore( &aws_app_info->msg_semaphore );
-    wiced_rtos_init_semaphore( &aws_app_info->wake_semaphore );
 
     return WICED_SUCCESS;
 }
