@@ -175,6 +175,8 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
     apa102_color_t commandColor;
     char json_str_buffer[100] = {0};
 
+    WPRINT_APP_INFO(("RGB Command Received\r\n"));
+
     // jsonValue will contain a string of RGB values. Ex. "[10, 255, 255, 0]"
     JsonNode * jsonValue = json_find_member(node, "value");
     // valueObject will ultimately contain an array of RGB values
@@ -208,7 +210,7 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
                         commandColor.blue = arrayElement->number_;
                         break;
                     default:
-                        DBG("Number of RGB command values greater than expected");
+                        WPRINT_APP_INFO(("Number of RGB command values greater than expected\r\n"));
                         json_delete(valueObject);
                         json_delete(jsonValue);
                         return WICED_ERROR;
@@ -218,11 +220,13 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
                 arrayIndex++;
             }
 
+            WPRINT_APP_INFO(("RGB Value: Brightness-%d, R-%d, G-%d, B-%d\r\n",
+                    commandColor.brightness, commandColor.red, commandColor.blue, commandColor.green));
             apa102_led_color_set(&rgb_ctx, commandColor);
         }
         else
         {
-            DBG("Failed to parse new value object");
+            WPRINT_APP_INFO(("Failed to parse new value object\r\n"));
             json_delete(valueObject);
             json_delete(jsonValue);
             return WICED_ERROR;
@@ -230,7 +234,7 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
     }
     else
     {
-        DBG("Failed to find member: \"value\"");
+        WPRINT_APP_INFO(("Failed to find member: \"value\"\r\n"));
         json_delete(valueObject);
         json_delete(jsonValue);
         return WICED_ERROR;
@@ -238,6 +242,9 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
 
     json_delete(valueObject);
     json_delete(jsonValue);
+
+    WPRINT_APP_INFO(("RGB Command Handling Complete\r\n"));
+
     return WICED_SUCCESS;
 }
 
@@ -262,7 +269,7 @@ int state_handler(char *str)
             }
             else
             {
-                DBG("Found node: %s", deviceStateNode->key);
+                WPRINT_APP_INFO(("Found node: %s\r\n", deviceStateNode->key));
             }
         }
     }
@@ -333,7 +340,7 @@ wiced_result_t temperature_init( void )
     hts221_device_id_get(&hts_ctx, &whoamI);
     if( whoamI != HTS221_ID )
     {
-        DBG("Failed to read WHOAMI from temperature device; addr 0x%x\n", i2c_device_temperature.address);
+        WPRINT_APP_INFO(("Failed to read WHOAMI from temperature device; addr 0x%x\r\n", i2c_device_temperature.address));
         return WICED_ERROR;
     }
 
@@ -425,7 +432,7 @@ wiced_result_t accelerometer_init( void )
     lis2dh12_device_id_get(&accel_ctx, &whoamI);
     if(whoamI != LIS2DH12_ID)
     {
-        DBG("Failed to read WHOAMI from accelerometer device; addr 0x%x\n", i2c_device_accelerometer.address);
+        WPRINT_APP_INFO(("Failed to read WHOAMI from accelerometer device; addr 0x%x\r\n", i2c_device_accelerometer.address));
     }
 
     /* Power-up the device */
@@ -496,9 +503,9 @@ int rgb_handler(const char *data)
 {
     static apa102_color_t color = {0};
 
-    DBG("---------------------------------------------");
-    DBG("rgb_handler: %s", data);
-    DBG("---------------------------------------------");
+    WPRINT_APP_INFO(("---------------------------------------------\r\n"));
+    WPRINT_APP_INFO(("rgb_handler: %s\r\n", data));
+    WPRINT_APP_INFO(("---------------------------------------------\r\n"));
     JsonNode * rgb_color = json_decode(data);
     if(rgb_color)
     {
@@ -528,7 +535,7 @@ int rgb_handler(const char *data)
     }
     else
     {
-        DBG("json parse failed");
+        WPRINT_APP_INFO(("json parse failed\r\n"));
     }
 
     return 0;
