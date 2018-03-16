@@ -591,8 +591,11 @@ wiced_result_t arrow_cloud_init(void)
 
     arrow_mqtt_events_init();
 
-    // Add command handlers, this MUST be done before initializing the gateway
-    arrow_command_handler_add("rgb", rgb_handler);
+    // Add command handlers
+    if(arrow_command_handler_add("rgb", rgb_handler) != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
 
     return WICED_SUCCESS;
 }
