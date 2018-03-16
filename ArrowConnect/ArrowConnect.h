@@ -36,3 +36,4 @@
 #include <arrow/routine.h>
 #include "arrow/state.h"
 #include "arrow/device_command.h"
+#include "arrow/events.h"

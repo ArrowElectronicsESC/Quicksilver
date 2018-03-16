@@ -605,7 +605,15 @@ void application_start( )
 
     while(1)
     {
-        /* Send the latest data to Arrow Connect */
-        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+        arrow_mqtt_connect_routine();
+        int ret = arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+        switch ( ret ) {
+        case ROUTINE_RECEIVE_EVENT:
+            arrow_mqtt_disconnect_routine();
+            arrow_mqtt_event_proc();
+            break;
+        default:
+            break;
+        }
     }
 }
