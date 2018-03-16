@@ -583,20 +583,16 @@ wiced_result_t quicksilver_init(void)
 
 wiced_result_t arrow_cloud_init(void)
 {
-    // Add command handlers, this MUST be done before initializing the gateway
-    add_cmd_handler("rgb", rgb_handler);
-
     /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
     if(arrow_initialize_routine() != ROUTINE_SUCCESS)
     {
         return WICED_ERROR;
     }
 
-    /* Connect to the MQTT Service */
-    if(arrow_mqtt_connect_routine() != ROUTINE_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
+    arrow_mqtt_events_init();
+
+    // Add command handlers, this MUST be done before initializing the gateway
+    arrow_command_handler_add("rgb", rgb_handler);
 
     return WICED_SUCCESS;
 }
