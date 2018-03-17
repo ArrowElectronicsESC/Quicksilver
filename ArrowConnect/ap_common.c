@@ -14,14 +14,10 @@
 
 #include "./ap_common.h"
 
-static aws_app_info_t *aws_app_info;
-static wiced_ip_address_t broker_address;
-
-
 /******************************************************
  *               Function Definitions
  ******************************************************/
-wiced_result_t aws_app_init( aws_app_info_t *app_info )
+wiced_result_t aws_app_init( void )
 {
     wiced_result_t ret = WICED_SUCCESS;
 

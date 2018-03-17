@@ -68,7 +68,7 @@ typedef struct aws_app_info_s
 /******************************************************
  *               Function Declarations
  ******************************************************/
-wiced_result_t aws_app_init( aws_app_info_t *app_info );
+wiced_result_t aws_app_init( void );
 
 #ifdef __cplusplus
 } /* extern "C" */

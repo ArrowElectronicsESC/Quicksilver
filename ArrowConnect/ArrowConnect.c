@@ -35,6 +35,20 @@ typedef struct {
   float y1;
 } lin_t;
 
+typedef struct {
+    char * cmd;
+    int (*handler)(const char *data);
+}command_handler_t;
+
+/******************************************************
+ *               Static Function Declarations
+ ******************************************************/
+wiced_result_t temperature_init( void );
+wiced_result_t accelerometer_init( void );
+wiced_result_t rgb_init( void );
+int cmd_handler_rgb(const char *data);
+int cmd_handler_update(const char *data);
+
 /******************************************************
  *                    Structures
  ******************************************************/
@@ -54,25 +68,11 @@ static wiced_i2c_device_t i2c_device_accelerometer =
         .speed_mode = I2C_STANDARD_SPEED_MODE,
 };
 
-static const wiced_ip_setting_t ap_ip_settings =
-{
-    INITIALISER_IPV4_ADDRESS( .ip_address, MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
-    INITIALISER_IPV4_ADDRESS( .netmask,    MAKE_IPV4_ADDRESS( 255,255,255,  0 ) ),
-    INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
+static command_handler_t arrowCommandHandlers[] = {
+    // Command       // Handler
+    { "rgb",         &cmd_handler_rgb },
+    { "update",      &cmd_handler_update },
 };
-
-static aws_app_info_t  app_info = {
-    .mqtt_client_id = {0},
-};
-
-/******************************************************
- *               Static Function Declarations
- ******************************************************/
-wiced_result_t temperature_init( void );
-wiced_result_t accelerometer_init( void );
-wiced_result_t adc_init( void );
-wiced_result_t rgb_init( void );
-wiced_result_t probe_sensors(void);
 
 /******************************************************
  *               Variable Definitions
@@ -309,7 +309,12 @@ wiced_result_t i2c_init(void)
         return WICED_ERROR;
     }
 
-    return i2c_sensor_probe();
+    if ( i2c_sensor_probe() != WICED_SUCCESS )
+    {
+        return WICED_ERROR;
+    }
+
+    return WICED_SUCCESS;
 }
 
 wiced_result_t gpio_init(void)
@@ -499,7 +504,14 @@ int update_sensor_data(void * data)
     return 0;
 }
 
-int rgb_handler(const char *data)
+int cmd_handler_update(const char *data)
+{
+    WPRINT_APP_INFO(("Update Command Handler\r\n"));
+
+    return 0;
+}
+
+int cmd_handler_rgb(const char *data)
 {
     static apa102_color_t color = {0};
 
@@ -573,7 +585,7 @@ wiced_result_t quicksilver_init(void)
         return WICED_ERROR;
     }
 
-    if(aws_app_init(&app_info) != WICED_SUCCESS)
+    if(aws_app_init() != WICED_SUCCESS)
     {
         return WICED_ERROR;
     }
@@ -592,9 +604,9 @@ wiced_result_t arrow_cloud_init(void)
     arrow_mqtt_events_init();
 
     // Add command handlers
-    if(arrow_command_handler_add("rgb", rgb_handler) != WICED_SUCCESS)
+    for(int i = 0; i < sizeof(arrowCommandHandlers)/sizeof(command_handler_t); i++)
     {
-        return WICED_ERROR;
+        arrow_command_handler_add(arrowCommandHandlers[i].cmd, arrowCommandHandlers[i].handler);
     }
 
     return WICED_SUCCESS;
