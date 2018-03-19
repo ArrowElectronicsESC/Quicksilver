@@ -3,6 +3,7 @@
 #include <string.h>
 #include "wiced.h"
 
+#if defined(debug)
 
 static char dbg_buf[DBG_LINE_SIZE];
 
@@ -16,4 +17,5 @@ void dbg_line(const char *fmt, ...) {
     WPRINT_APP_INFO( (dbg_buf) );
     va_end(args);
 }
+#endif
 

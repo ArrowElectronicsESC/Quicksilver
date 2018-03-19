@@ -6,115 +6,149 @@
  * Contributors: Arrow Electronics, Inc.
  */
 
+#include "wiced.h"
+#include "ap_config.h"
 #include "arrow/storage.h"
 #include <arrow/utf8.h>
 #include <debug.h>
 #include <sys/type.h>
 
-//flash_mem_t mem __attribute__((section("UNINIT_FIXED_LOC")));
+int restore_gateway_info(arrow_gateway_t *gateway)
+{
+    wiced_result_t           result;
+    aws_config_dct_t*        aws_dct_ptr;
 
-int restore_gateway_info(arrow_gateway_t *gateway) {
-////  if ( mem.magic != (int) FLASH_MAGIC_NUMBER ) {
-////    FLASH_unlock_erase((uint32_t)&mem, sizeof(mem));
-////    return -1;
-////  }
-////  if ( utf8check(mem.gateway_hid) && strlen(mem.gateway_hid) ) {
-//    //property_copy(&gateway->hid, p_const(mem.gateway_hid));
-////    DBG("--- flash load %s", mem.gateway_hid);
-////    return 0;
-////  }
-//
-//    gateway->hid.value = strdup("f40b47c27e980a60e173042f87ae03e1a9be3b7a");
-//    //sprintf(&gateway->hid.value, "f40b47c27e980a60e173042f87ae03e1a9be3b7a");
-//    gateway->hid.flags = is_dynamic;
-//    DBG("gateway hid: value - %s flag: %d\n",gateway->hid.value, gateway->hid.flags);
-//    //TODO(bman): Actually make this work good
-  return -1;
+    /* Read the Application DCT to get the Gateway HID */
+    result = wiced_dct_read_lock( (void**) &aws_dct_ptr, WICED_FALSE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
+        return WICED_ERROR;
+    }
+
+    P_COPY(gateway->hid, p_stack(aws_dct_ptr->gateway_hid));
+
+    result = wiced_dct_read_unlock( aws_dct_ptr, WICED_FALSE );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(( "DCT Read Unlock Failed. Error = [%d]\n", result ));
+        return WICED_ERROR;
+    }
+
+    /* Safety check the Gateway HID */
+    if(utf8check(aws_dct_ptr->gateway_hid) && strlen(aws_dct_ptr->gateway_hid) > 0)
+    {
+        WPRINT_APP_INFO(("Existing Gateway, Load HID: %s\n", gateway->hid.value));
+        return 0;
+    }
+    else
+    {
+        // New Gateway
+        WPRINT_APP_INFO(("New Gateway\n"));
+        return -1;
+    }
 }
 
-void save_gateway_info(const arrow_gateway_t *gateway) {
-//  if ( gateway && P_SIZE(gateway->hid) < 64 ) {
-//    uint32_t magic = FLASH_MAGIC_NUMBER;
-//    if (FLASH_update((uint32_t)&mem.magic, &magic, sizeof(magic)) < 0) {
-//      DBG("Failed updating the wifi configuration in FLASH");
-//    }
-//    if (FLASH_update((uint32_t)mem.gateway_hid, P_VALUE(gateway->hid), P_SIZE(gateway->hid)+1) < 0) {
-//      DBG("Failed updating the wifi configuration in FLASH");
-//    }
-//  }
+void save_gateway_info(const arrow_gateway_t *gateway)
+{
+    wiced_result_t           result;
+    aws_config_dct_t*        aws_dct_ptr;
+
+    result = wiced_dct_read_lock( (void**) &aws_dct_ptr, WICED_TRUE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
+    }
+
+    strcpy(aws_dct_ptr->gateway_hid, P_VALUE(gateway->hid));
+    WPRINT_APP_INFO(("Storing New Gateway HID: %s\n", aws_dct_ptr->gateway_hid));
+
+    wiced_dct_write( (const void*)aws_dct_ptr, DCT_APP_SECTION, 0, sizeof(aws_config_dct_t) );
+
+    /* Finished accessing the AWS APP DCT */
+    result = wiced_dct_read_unlock( aws_dct_ptr, WICED_TRUE );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(( "DCT Read Unlock Failed. Error = [%d]\n", result ));
+    }
+
+    return;
 }
 
-int restore_device_info(arrow_device_t *device) {
-//  if ( mem.magic != (int) FLASH_MAGIC_NUMBER ) {
-//    FLASH_unlock_erase((uint32_t)&mem, sizeof(mem));
-//    return -1;
-//  }
-//  if ( !utf8check(mem.device_hid) || !strlen(mem.device_hid) ) {
-//    return -1;
-//  }
-//  property_copy(&device->hid, p_const(mem.device_hid));
-//  DBG("--- flash load %s", mem.device_hid);
-//#if defined(__IBM__)
-//  if ( !utf8check(mem.device_eid) || !strlen(mem.device_eid) ) {
-//    return -1;
-//  }
-//  property_copy(&device->eid, p_const(mem.device_eid));
-//#endif
-  return -1;
-}
+int restore_device_info(arrow_device_t *device)
+{
+    wiced_result_t           result;
+    aws_config_dct_t*        aws_dct_ptr;
 
-void save_device_info(arrow_device_t *device) {
-//  if ( device ) {
-//    if ( P_SIZE(device->hid) < 64 ) {
-//      if (FLASH_update((uint32_t)mem.device_hid, P_VALUE(device->hid), P_SIZE(device->hid)+1) < 0) {
-//        DBG("Failed updating the wifi configuration in FLASH");
-//      }
-//    }
-//#if defined(__IBM__)
-//    if ( P_SIZE(device->eid) < 64 ) {
-//      if (FLASH_update((uint32_t)mem.device_eid, P_VALUE(device->eid), P_SIZE(device->eid)+1) < 0) {
-//        DBG("Failed updating the wifi configuration in FLASH");
-//      }
-//    }
-//#endif
-//  }
-}
+    /* Read the Application DCT to get the Device HID */
+    result = wiced_dct_read_lock( (void**) &aws_dct_ptr, WICED_FALSE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
+        return WICED_ERROR;
+    }
 
-void save_wifi_setting(const char *ssid, const char *pass, int sec) {
-//  if (FLASH_update((uint32_t)mem.ssid, ssid, strlen(ssid)+1) < 0) {
-//    DBG("Failed updating the wifi configuration in FLASH");
-//  }
-//  if (FLASH_update((uint32_t)mem.ssid, ssid, strlen(pass)+1) < 0) {
-//    DBG("Failed updating the wifi configuration in FLASH");
-//  }
-//  if (FLASH_update((uint32_t)&mem.sec, &sec, sizeof(sec)) < 0) {
-//    DBG("Failed updating the wifi configuration in FLASH");
-//  }
-}
-
-int restore_wifi_setting(char *ssid, char *pass, int *sec) {
-#if defined(DEFAULT_WIFI_SSID) \
-  && defined(DEFAULT_WIFI_PASS) \
-  && defined(DEFAULT_WIFI_SEC)
-  strcpy(ssid, DEFAULT_WIFI_SSID);
-  strcpy(pass, DEFAULT_WIFI_PASS);
-  *sec = DEFAULT_WIFI_SEC;
-#else
-//  if ( mem.magic != FLASH_MAGIC_NUMBER ) {
-//    FLASH_unlock_erase((uint32_t)&mem, sizeof(mem));
-//    return -1;
-//  }
-//  if ( !utf8check(mem.ssid) || !strlen(mem.ssid) ) {
-//    return -1;
-//  }
-//  strcpy(ssid, mem.ssid);
-//  DBG("--- flash load %s", mem.ssid);
-//  if ( !utf8check(mem.pass) || !strlen(mem.ssid) ) {
-//    return -1;
-//  }
-//  strcpy(pass, mem.pass);
-//  DBG("--- flash load %s", mem.pass);
-//  *sec = mem.sec;
+    P_COPY(device->hid, p_stack(aws_dct_ptr->device_hid));
+#if defined(__IBM__)
+    {
+        P_COPY(device->eid, p_stack(aws_dct_ptr->device_eid));
+    }
 #endif
-  return 0;
+
+    result = wiced_dct_read_unlock( aws_dct_ptr, WICED_FALSE );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(( "DCT Read Unlock Failed. Error = [%d]\n", result ));
+        return WICED_ERROR;
+    }
+
+    /* Safety check the Device HID */
+    if(utf8check(aws_dct_ptr->device_hid) && (strlen(aws_dct_ptr->device_hid) > 0))
+    {
+        WPRINT_APP_INFO(("Existing Device, Load HID: %s\n", device->hid.value));
+        return 0;
+    }
+#if defined (__IBM__)
+    /* Safety check the Device HID */
+    if(utf8check(aws_dct_ptr->device_hid) && (strlen(aws_dct_ptr->device_hid) > 0))
+    {
+        WPRINT_APP_INFO(("Existing IBM Device, Load EID: %s\n", device->hid.value));
+        return 0;
+    }
+#endif
+
+    // New Gateway
+    WPRINT_APP_INFO(("New Device\n"));
+    return -1;
+}
+
+void save_device_info(arrow_device_t *device)
+{
+    wiced_result_t           result;
+    aws_config_dct_t*        aws_dct_ptr;
+
+    result = wiced_dct_read_lock( (void**) &aws_dct_ptr, WICED_TRUE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
+    }
+
+    strcpy(aws_dct_ptr->device_hid, P_VALUE(device->hid));
+    WPRINT_APP_INFO(("Storing New Device HID: %s\n", aws_dct_ptr->device_hid));
+
+#if defined(__IBM__)
+    strcpy(aws_dct_ptr->device_eid, P_VALUE(device->eid));
+    WPRINT_APP_INFO(("Storing New IBM Device EID: %s\n", aws_dct_ptr->device_eid));
+#endif
+
+    wiced_dct_write( (const void*)aws_dct_ptr, DCT_APP_SECTION, 0, sizeof(aws_config_dct_t) );
+
+    /* Finished accessing the AWS APP DCT */
+    result = wiced_dct_read_unlock( aws_dct_ptr, WICED_TRUE );
+    if ( result != WICED_SUCCESS )
+    {
+        WPRINT_APP_INFO(( "DCT Read Unlock Failed. Error = [%d]\n", result ));
+    }
+
+    return;
 }
