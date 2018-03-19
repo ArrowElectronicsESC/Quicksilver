@@ -1,52 +1,25 @@
-#include <stdlib.h>
 #include "wiced.h"
-#include "wiced_tls.h"
-#include "command_console.h"
-#include "device_onboarding.h"
 #include "ArrowConnect.h"
-#include "arrow/device_command.h"
-#include "platform.h"
-
 #include "quicksilver.h"
-
-#include "arrow/api/gateway/info.h"
-#include "arrow/api/gateway/gateway.h"
-
-
-#include <arrow/routine.h>
-#include <arrow/utf8.h>
 #include <debug.h>
-
-#include <math.h>
-#include "resources.h"
-#include "wiced_management.h"
-#include "command_console_ping.h"
-
-#include "Drivers/Sensors/LIS2DH12/lis2dh12.h"
-#include "Drivers/Sensors/HTS221/hts221.h"
-#include "Drivers/LED/APA102/apa102.h"
-
-/******************************************************
- *                      Macros
- ******************************************************/
-
-#define PING_TIMEOUT_MS          2000
-#define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
-#define VERIFY_SUCCESS(x)       if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
 /******************************************************
  *                    Constants
  ******************************************************/
-
 #define RGB_CLOCK WICED_GPIO_10
 #define RGB_DATA WICED_GPIO_8
-
 #define BUFFER_LENGTH     (2048)
 #define MAX_LINE_LENGTH  (128)
 #define MAX_HISTORY_LENGTH (20)
 #define MAX_NUM_COMMAND_TABLE  (8)
-
 #define NUM_I2C_MESSAGE_RETRIES   (3)
+#define PING_TIMEOUT_MS          2000
+
+/******************************************************
+ *                      Macros
+ ******************************************************/
+#define DELAY_MS(x)             wiced_rtos_delay_milliseconds(x)
+#define VERIFY_SUCCESS(x)       if(x != WICED_SUCCESS) {wiced_framework_reboot();}
 
 /******************************************************
  *                   Enumerations
@@ -61,6 +34,20 @@ typedef struct {
   float x1;
   float y1;
 } lin_t;
+
+typedef struct {
+    char * cmd;
+    int (*handler)(const char *data);
+}command_handler_t;
+
+/******************************************************
+ *               Static Function Declarations
+ ******************************************************/
+wiced_result_t temperature_init( void );
+wiced_result_t accelerometer_init( void );
+wiced_result_t rgb_init( void );
+int cmd_handler_rgb(const char *data);
+int cmd_handler_update(const char *data);
 
 /******************************************************
  *                    Structures
@@ -81,21 +68,11 @@ static wiced_i2c_device_t i2c_device_accelerometer =
         .speed_mode = I2C_STANDARD_SPEED_MODE,
 };
 
-static const wiced_ip_setting_t ap_ip_settings =
-{
-    INITIALISER_IPV4_ADDRESS( .ip_address, MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
-    INITIALISER_IPV4_ADDRESS( .netmask,    MAKE_IPV4_ADDRESS( 255,255,255,  0 ) ),
-    INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS( 192,168,  0,  1 ) ),
+static command_handler_t arrowCommandHandlers[] = {
+    // Command       // Handler
+    { "rgb",         &cmd_handler_rgb },
+    { "update",      &cmd_handler_update },
 };
-
-/******************************************************
- *               Static Function Declarations
- ******************************************************/
-wiced_result_t temperature_init( void );
-wiced_result_t accelerometer_init( void );
-wiced_result_t adc_init( void );
-wiced_result_t rgb_init( void );
-wiced_result_t probe_sensors(void);
 
 /******************************************************
  *               Variable Definitions
@@ -114,8 +91,6 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
-static wiced_semaphore_t app_semaphore;
-static uint32_t onboarding_status;
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -195,9 +170,115 @@ float linear_interpolation(lin_t *lin, int16_t x)
         / (lin->x1 - lin->x0);
 }
 
+wiced_result_t parseCommand_RGB(JsonNode * node)
+{
+    apa102_color_t commandColor;
+    char json_str_buffer[100] = {0};
+
+    WPRINT_APP_INFO(("RGB Command Received\r\n"));
+
+    // jsonValue will contain a string of RGB values. Ex. "[10, 255, 255, 0]"
+    JsonNode * jsonValue = json_find_member(node, "value");
+    // valueObject will ultimately contain an array of RGB values
+    JsonNode * valueObject = json_mkobject();
+
+    if(jsonValue)
+    {
+        // Rebuild a JSON string so it can be easily parsed
+        sprintf(json_str_buffer, "{\"value\":%s}",jsonValue->string_);
+        // Parse the new JSON string
+        valueObject = json_decode(json_str_buffer);
+        if(valueObject)
+        {
+            JsonNode *arrayKey = json_find_member(valueObject, "value");
+            JsonNode *arrayElement;
+            uint8_t arrayIndex = 0;
+            json_foreach(arrayElement, arrayKey)
+            {
+                switch(arrayIndex)
+                {
+                    case 0:
+                        commandColor.brightness = arrayElement->number_ < 0x1F ? arrayElement->number_: 0x1F;
+                        break;
+                    case 1:
+                        commandColor.red = arrayElement->number_;
+                        break;
+                    case 2:
+                        commandColor.green = arrayElement->number_;
+                        break;
+                    case 3:
+                        commandColor.blue = arrayElement->number_;
+                        break;
+                    default:
+                        WPRINT_APP_INFO(("Number of RGB command values greater than expected\r\n"));
+                        json_delete(valueObject);
+                        json_delete(jsonValue);
+                        return WICED_ERROR;
+                        break;
+                }
+
+                arrayIndex++;
+            }
+
+            WPRINT_APP_INFO(("RGB Value: Brightness-%d, R-%d, G-%d, B-%d\r\n",
+                    commandColor.brightness, commandColor.red, commandColor.blue, commandColor.green));
+            apa102_led_color_set(&rgb_ctx, commandColor);
+        }
+        else
+        {
+            WPRINT_APP_INFO(("Failed to parse new value object\r\n"));
+            json_delete(valueObject);
+            json_delete(jsonValue);
+            return WICED_ERROR;
+        }
+    }
+    else
+    {
+        WPRINT_APP_INFO(("Failed to find member: \"value\"\r\n"));
+        json_delete(valueObject);
+        json_delete(jsonValue);
+        return WICED_ERROR;
+    }
+
+    json_delete(valueObject);
+    json_delete(jsonValue);
+
+    WPRINT_APP_INFO(("RGB Command Handling Complete\r\n"));
+
+    return WICED_SUCCESS;
+}
+
 /******************************************************
  *               Application Function Definitions
  ******************************************************/
+int state_handler(char *str)
+{
+    int Status = 0;
+
+
+    JsonNode *main_ = json_decode(str);
+    JsonNode *deviceStateNode = NULL;
+
+    if(main_)
+    {
+        json_foreach(deviceStateNode, main_)
+        {
+            if(strcmp(deviceStateNode->key, "rgbValues") == 0)
+            {
+                parseCommand_RGB(deviceStateNode);
+            }
+            else
+            {
+                WPRINT_APP_INFO(("Found node: %s\r\n", deviceStateNode->key));
+            }
+        }
+    }
+
+
+
+  return Status;
+}
+
 wiced_result_t i2c_sensor_probe(void)
 {
     /* Probe I2C bus for accelerometer */
@@ -228,7 +309,12 @@ wiced_result_t i2c_init(void)
         return WICED_ERROR;
     }
 
-    return i2c_sensor_probe();
+    if ( i2c_sensor_probe() != WICED_SUCCESS )
+    {
+        return WICED_ERROR;
+    }
+
+    return WICED_SUCCESS;
 }
 
 wiced_result_t gpio_init(void)
@@ -259,7 +345,7 @@ wiced_result_t temperature_init( void )
     hts221_device_id_get(&hts_ctx, &whoamI);
     if( whoamI != HTS221_ID )
     {
-        DBG("Failed to read WHOAMI from temperature device; addr 0x%x\n", i2c_device_temperature.address);
+        WPRINT_APP_INFO(("Failed to read WHOAMI from temperature device; addr 0x%x\r\n", i2c_device_temperature.address));
         return WICED_ERROR;
     }
 
@@ -351,7 +437,7 @@ wiced_result_t accelerometer_init( void )
     lis2dh12_device_id_get(&accel_ctx, &whoamI);
     if(whoamI != LIS2DH12_ID)
     {
-        DBG("Failed to read WHOAMI from accelerometer device; addr 0x%x\n", i2c_device_accelerometer.address);
+        WPRINT_APP_INFO(("Failed to read WHOAMI from accelerometer device; addr 0x%x\r\n", i2c_device_accelerometer.address));
     }
 
     /* Power-up the device */
@@ -418,16 +504,28 @@ int update_sensor_data(void * data)
     return 0;
 }
 
-int rgb_handler(const char *data)
+int cmd_handler_update(const char *data)
 {
-    apa102_color_t color = {0};
+    WPRINT_APP_INFO(("Update Command Handler\r\n"));
 
-    DBG("---------------------------------------------");
-    DBG("rgb_handler: %s", data);
-    DBG("---------------------------------------------");
+    return 0;
+}
+
+int cmd_handler_rgb(const char *data)
+{
+    static apa102_color_t color = {0};
+
+    WPRINT_APP_INFO(("---------------------------------------------\r\n"));
+    WPRINT_APP_INFO(("rgb_handler: %s\r\n", data));
+    WPRINT_APP_INFO(("---------------------------------------------\r\n"));
     JsonNode * rgb_color = json_decode(data);
     if(rgb_color)
     {
+        JsonNode *brightness = json_find_member(rgb_color, "brightness");
+        if(brightness && brightness->tag == JSON_NUMBER)
+        {
+            color.brightness = (int)brightness->number_;
+        }
         JsonNode *red_val = json_find_member(rgb_color, "red");
         if(red_val && red_val->tag == JSON_NUMBER)
         {
@@ -443,113 +541,28 @@ int rgb_handler(const char *data)
         {
             color.blue = (int)blue_val->number_;
         }
-        json_delete(rgb_color);
 
+        json_delete(rgb_color);
         apa102_led_color_set(&rgb_ctx, color);
     }
     else
     {
-        DBG("json parse failed");
+        WPRINT_APP_INFO(("json parse failed\r\n"));
     }
 
     return 0;
-}
-
-/* When WiFi onboarding service is started, application will wait for
- * this callback(onboarding either failed or succeed), application then may
- * decide the next step. For example - if onboarding is success, application
- * may call the wifi_onboarding_stop and trigger a reboot.
- * On onboarding failure, application may retry certain number of times by starting the
- * onboarding service again(after stopping it first)
- */
-static void app_wifi_onboarding_callback( uint32_t result )
-{
-    WPRINT_APP_INFO( ( "[App] WiFi Onboarding callback..." ) );
-    if( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("Onboarding Failed\r\n" ) );
-    }
-    else
-    {
-        WPRINT_APP_INFO( ("Onboarding successfull\r\n" ) );
-    }
-
-    onboarding_status = result;
-
-    wiced_rtos_set_semaphore(&app_semaphore);
-}
-
-wiced_result_t quicksilver_ap_init(void)
-{
-    wiced_bool_t* device_configured;
-    wiced_result_t result;
-
-    result = wiced_dct_read_lock( (void**) &device_configured, WICED_FALSE, DCT_WIFI_CONFIG_SECTION, OFFSETOF(platform_dct_wifi_config_t, device_configured), sizeof(wiced_bool_t) );
-
-    if( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ("[App] Error fetching platform DCT section\n") );
-        wiced_dct_read_unlock(device_configured, WICED_FALSE);
-        return result;
-    }
-
-    if( *device_configured != WICED_TRUE )
-    {
-        wiced_rtos_init_semaphore(&app_semaphore);
-
-        WPRINT_APP_INFO( ("[App] Starting Wifi Onboarding service...\n") );
-
-        result = wiced_wifi_device_onboarding_start(&ap_ip_settings, app_wifi_onboarding_callback);
-
-        if( result != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO( ("[App] Error Starting the on-boarding of device\n") );
-            wiced_dct_read_unlock(device_configured, WICED_FALSE);
-            return result;
-        }
-
-        WPRINT_APP_INFO( ("[App] Waiting for Onboarding callback...\n") );
-
-        result = wiced_rtos_get_semaphore(&app_semaphore, WICED_NEVER_TIMEOUT);
-        if( result != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO( ( "[App] Sempahore get error or timeout\r\n" ) );
-            wiced_rtos_deinit_semaphore(&app_semaphore);
-            return result;
-        }
-
-        WPRINT_APP_INFO( ("[App] Stopping Wifi Onboarding service...\n") );
-        result = wiced_wifi_device_onboarding_stop();
-
-        if( result != WICED_SUCCESS )
-        {
-            WPRINT_APP_INFO( ("[App] Error Stopping the on-boarding service\n") );
-            wiced_rtos_deinit_semaphore(&app_semaphore);
-            return result;
-        }
-
-        wiced_framework_reboot();
-    }
-
-    WPRINT_APP_INFO( ( "[App] Normal Application start\n" ) );
-
-    result = wiced_network_up(WICED_STA_INTERFACE, WICED_USE_EXTERNAL_DHCP_SERVER, NULL);
-    if ( result != WICED_SUCCESS )
-    {
-        WPRINT_APP_INFO( ( "[App] Failed to join network \n") );
-        wiced_dct_read_unlock(device_configured, WICED_FALSE);
-        return result;
-    }
-
-    WPRINT_APP_INFO( ( "[App] Started STA successfully with saved configuration\n" ) );
-    wiced_dct_read_unlock(device_configured, WICED_FALSE);
-    return WICED_SUCCESS;
 }
 
 wiced_result_t quicksilver_init(void)
 {
     /* Initialize I2C*/
     if(i2c_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    /* Initialize GPIO*/
+    if(gpio_init() != WICED_SUCCESS)
     {
         return WICED_ERROR;
     }
@@ -572,12 +585,43 @@ wiced_result_t quicksilver_init(void)
         return WICED_ERROR;
     }
 
-    if(quicksilver_ap_init() != WICED_SUCCESS)
+    if(aws_app_init() != WICED_SUCCESS)
     {
         return WICED_ERROR;
     }
 
     return WICED_SUCCESS;
+}
+
+int gateway_software_update_cb(const char *url)
+{
+    WPRINT_APP_INFO(("Gateway Software Update Callback\r\n"));
+
+    return 0;
+}
+
+int arrow_release_download_payload(const char *payload, int size, int flag)
+{
+    if ( flag == FW_FIRST )
+    {
+        WPRINT_APP_INFO(("Release Download Started\r\n"));
+    }
+
+    return 0;
+}
+
+int arrow_release_download_complete(int flag)
+{
+    if(flag == FW_SUCCESS)
+    {
+        WPRINT_APP_INFO(("Release Download Completed Successfully\r\n"));
+    }
+    else
+    {
+        WPRINT_APP_INFO(("Release Download Failed, OTA SDK MD5SUM Checksum is NOT correct\r\n"));
+    }
+
+    return 0;
 }
 
 wiced_result_t arrow_cloud_init(void)
@@ -588,14 +632,18 @@ wiced_result_t arrow_cloud_init(void)
         return WICED_ERROR;
     }
 
-    /* Connect to the MQTT Service */
-    if(arrow_mqtt_connect_routine() != ROUTINE_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
+    arrow_mqtt_events_init();
 
     // Add command handlers
-    add_cmd_handler("rgb", rgb_handler);
+    for(int i = 0; i < sizeof(arrowCommandHandlers)/sizeof(command_handler_t); i++)
+    {
+        arrow_command_handler_add(arrowCommandHandlers[i].cmd, arrowCommandHandlers[i].handler);
+    }
+
+#if !defined(NO_SOFTWARE_UPDATE)
+    arrow_gateway_software_update_set_cb(gateway_software_update_cb);
+#endif
+    arrow_software_release_dowload_set_cb(arrow_release_download_payload, arrow_release_download_complete);
 
     return WICED_SUCCESS;
 }
@@ -611,9 +659,15 @@ void application_start( )
 
     while(1)
     {
-        /* Send the latest data to Arrow Connect */
-        arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+        arrow_mqtt_connect_routine();
+        int ret = arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+        switch ( ret ) {
+        case ROUTINE_RECEIVE_EVENT:
+            arrow_mqtt_disconnect_routine();
+            arrow_mqtt_event_proc();
+            break;
+        default:
+            break;
+        }
     }
-
-
 }
