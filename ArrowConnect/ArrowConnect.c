@@ -593,6 +593,37 @@ wiced_result_t quicksilver_init(void)
     return WICED_SUCCESS;
 }
 
+int gateway_software_update_cb(const char *url)
+{
+    WPRINT_APP_INFO(("Gateway Software Update Callback\r\n"));
+
+    return 0;
+}
+
+int arrow_release_download_payload(const char *payload, int size, int flag)
+{
+    if ( flag == FW_FIRST )
+    {
+        WPRINT_APP_INFO(("Release Download Started\r\n"));
+    }
+
+    return 0;
+}
+
+int arrow_release_download_complete(int flag)
+{
+    if(flag == FW_SUCCESS)
+    {
+        WPRINT_APP_INFO(("Release Download Completed Successfully\r\n"));
+    }
+    else
+    {
+        WPRINT_APP_INFO(("Release Download Failed, OTA SDK MD5SUM Checksum is NOT correct\r\n"));
+    }
+
+    return 0;
+}
+
 wiced_result_t arrow_cloud_init(void)
 {
     /* Register the Quicksilver board as both a gateway and device and establish HTTP connection */
@@ -608,6 +639,11 @@ wiced_result_t arrow_cloud_init(void)
     {
         arrow_command_handler_add(arrowCommandHandlers[i].cmd, arrowCommandHandlers[i].handler);
     }
+
+#if !defined(NO_SOFTWARE_UPDATE)
+    arrow_gateway_software_update_set_cb(gateway_software_update_cb);
+#endif
+    arrow_software_release_dowload_set_cb(arrow_release_download_payload, arrow_release_download_complete);
 
     return WICED_SUCCESS;
 }
