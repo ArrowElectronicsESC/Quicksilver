@@ -8,7 +8,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include <stdint.h>
 #include <string.h>
-#include "debug.h"
 
 /** @addtogroup apa102
  * @{
