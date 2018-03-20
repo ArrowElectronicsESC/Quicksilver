@@ -29,6 +29,10 @@ char *telemetry_serialize(arrow_device_t *device, void *d) {
   json_append_member(_node, TELEMETRY_ACCELEROMETER_X, json_mknumber(data->accelerometer.x));
   json_append_member(_node, TELEMETRY_ACCELEROMETER_Y, json_mknumber(data->accelerometer.y));
   json_append_member(_node, TELEMETRY_ACCELEROMETER_Z, json_mknumber(data->accelerometer.z));
+  json_append_member(_node, "i|ledBrightness", json_mknumber(data->led.brightness));
+  json_append_member(_node, "i|ledRed", json_mknumber(data->led.red));
+  json_append_member(_node, "i|ledGreen", json_mknumber(data->led.green));
+  json_append_member(_node, "i|ledBlue", json_mknumber(data->led.blue));
 #endif
   char *tmp = json_encode(_node);
   json_delete(_node);

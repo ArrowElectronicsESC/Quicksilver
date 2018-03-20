@@ -496,10 +496,16 @@ wiced_result_t rgb_init( void )
     return WICED_SUCCESS;
 }
 
+int rgb_color_get(int argc, char *argv[])
+{
+    apa102_color_get(&telemetryData.led);
+}
+
 int update_sensor_data(void * data)
 {
     accelerometer_get(0, NULL);
     temperature_get(0, NULL);
+    rgb_color_get(0, NULL);
 
     return 0;
 }

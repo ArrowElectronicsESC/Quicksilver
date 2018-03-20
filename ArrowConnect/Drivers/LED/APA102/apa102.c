@@ -1,5 +1,12 @@
 #include "apa102.h"
 
+static apa102_color_t led_color = {
+        .brightness = 0,
+        .red = 0,
+        .green = 0,
+        .blue = 0,
+};
+
 /**
   * @brief  Initialize the AP102 LED.
   *
@@ -15,6 +22,20 @@ int32_t apa102_init(apa102_ctx_t *ctx)
 }
 
 /**
+  * @brief  Get the APA102 Color.
+  *
+  * @param  apa102_color_t *color: Pointer to an APA102 Color Structure
+  *
+  */
+void apa102_color_get(apa102_color_t *pColor)
+{
+    pColor->brightness = (led_color.brightness & 0x1F);
+    pColor->red = led_color.red;
+    pColor->green = led_color.green;
+    pColor->blue = led_color.blue;
+}
+
+/**
   * @brief  Turn LED Off.
   *
   * @param  apa102_ctx_t *ctx: Interface definition
@@ -22,14 +43,12 @@ int32_t apa102_init(apa102_ctx_t *ctx)
   */
 int32_t apa102_led_off(apa102_ctx_t *ctx)
 {
-    apa102_color_t color = {
-            .brightness = 0,
-            .red = 0,
-            .green = 0,
-            .blue = 0,
-    };
+    led_color.brightness = 0;
+    led_color.red = 0;
+    led_color.green = 0;
+    led_color.blue = 0;
 
-    apa102_led_color_set(ctx, color);
+    apa102_led_color_set(ctx, led_color);
 
     return 0;
 }
@@ -69,14 +88,19 @@ int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
 {
     uint8_t data_array[12];
 
+    led_color.brightness = (0xE0 | color.brightness);
+    led_color.red = color.red;
+    led_color.green = color.green;
+    led_color.blue = color.blue;
+
     data_array[0] = 0x00;
     data_array[1] = 0x00;
     data_array[2] = 0x00;
     data_array[3] = 0x00;
-    data_array[4] = (0xE0 | color.brightness);
-    data_array[5] = color.blue;
-    data_array[6] = color.green;
-    data_array[7] = color.red;
+    data_array[4] = led_color.brightness;
+    data_array[5] = led_color.blue;
+    data_array[6] = led_color.green;
+    data_array[7] = led_color.red;
     data_array[8] = 0xFF;
     data_array[9] = 0xFF;
     data_array[10] = 0xFF;
@@ -99,7 +123,12 @@ int32_t apa102_led_show_sequence(apa102_ctx_t *ctx, apa102_color_t * sequence, u
 {
     for ( int i = 0; i < size; i++ )
     {
-        apa102_led_color_set(ctx, sequence[i]);
+        led_color.brightness = (0xE0 | sequence[i].brightness);
+        led_color.red = sequence[i].red;
+        led_color.green = sequence[i].green;
+        led_color.blue = sequence[i].blue;
+
+        apa102_led_color_set(ctx, led_color);
         ctx->delay_ms(ctx, 500);
     }
 
@@ -115,14 +144,14 @@ int32_t apa102_led_show_sequence(apa102_ctx_t *ctx, apa102_color_t * sequence, u
 int32_t apa102_led_rainbow_sequence(apa102_ctx_t *ctx)
 {
     apa102_color_t Rainbow[8] = {
-            {255,0,0},
-            {255,110,0},
-            {255,255,0},
-            {0,255,0},
-            {0,0,255},
-            {0,255,255},
-            {255,0,255},
-            {255,255,255}
+            {1,255,0,0},
+            {1,255,110,0},
+            {1,255,255,0},
+            {1,0,255,0},
+            {1,0,0,255},
+            {1,0,255,255},
+            {1,255,0,255},
+            {1,255,255,255}
         };
 
     apa102_led_show_sequence(ctx, Rainbow, 8);
