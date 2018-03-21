@@ -46,7 +46,7 @@ typedef struct {
 wiced_result_t temperature_init( void );
 wiced_result_t accelerometer_init( void );
 wiced_result_t rgb_init( void );
-int cmd_handler_rgb(const char *data);
+int cmd_handler_setLED(const char *data);
 int cmd_handler_update(const char *data);
 
 /******************************************************
@@ -70,7 +70,7 @@ static wiced_i2c_device_t i2c_device_accelerometer =
 
 static command_handler_t arrowCommandHandlers[] = {
     // Command       // Handler
-    { "rgb",         &cmd_handler_rgb },
+    { "setLED",      &cmd_handler_setLED },
     { "update",      &cmd_handler_update },
 };
 
@@ -517,12 +517,12 @@ int cmd_handler_update(const char *data)
     return 0;
 }
 
-int cmd_handler_rgb(const char *data)
+int cmd_handler_setLED(const char *data)
 {
     static apa102_color_t color = {0};
 
     WPRINT_APP_INFO(("---------------------------------------------\r\n"));
-    WPRINT_APP_INFO(("rgb_handler: %s\r\n", data));
+    WPRINT_APP_INFO(("setLED cmd handler: %s\r\n", data));
     WPRINT_APP_INFO(("---------------------------------------------\r\n"));
     JsonNode * rgb_color = json_decode(data);
     if(rgb_color)
