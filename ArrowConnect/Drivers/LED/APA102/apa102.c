@@ -88,10 +88,143 @@ int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
 {
     uint8_t data_array[12];
 
-    led_color.brightness = (0xE0 | color.brightness);
+    led_color.brightness = color.brightness < 0x1F ? (color.brightness | 0xE0): 0xFF;
     led_color.red = color.red;
     led_color.green = color.green;
     led_color.blue = color.blue;
+
+    data_array[0] = 0x00;
+    data_array[1] = 0x00;
+    data_array[2] = 0x00;
+    data_array[3] = 0x00;
+    data_array[4] = led_color.brightness;
+    data_array[5] = led_color.blue;
+    data_array[6] = led_color.green;
+    data_array[7] = led_color.red;
+    data_array[8] = 0xFF;
+    data_array[9] = 0xFF;
+    data_array[10] = 0xFF;
+    data_array[11] = 0xFF;
+
+    spiBitbang(ctx, data_array, sizeof(data_array));
+
+    return 0;
+}
+
+/**
+  * @brief  Set the brightness of the LED.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  * @param  uint8_t value: LED brightness value
+  *
+  * @note   This function only changes the brightness of the LED
+  *         and does not change the color values. Acceptable values 0 - 31,
+  *         values above this limit will be forced to 31.
+  */
+int32_t apa102_led_brightness_set(apa102_ctx_t *ctx, uint8_t value)
+{
+    uint8_t data_array[12];
+
+    led_color.brightness = value < 0x1F ? (value | 0xE0): 0xFF;
+
+    data_array[0] = 0x00;
+    data_array[1] = 0x00;
+    data_array[2] = 0x00;
+    data_array[3] = 0x00;
+    data_array[4] = led_color.brightness;
+    data_array[5] = led_color.blue;
+    data_array[6] = led_color.green;
+    data_array[7] = led_color.red;
+    data_array[8] = 0xFF;
+    data_array[9] = 0xFF;
+    data_array[10] = 0xFF;
+    data_array[11] = 0xFF;
+
+    spiBitbang(ctx, data_array, sizeof(data_array));
+
+    return 0;
+}
+
+/**
+  * @brief  Set the Red value of the LED.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  * @param  uint8_t value: LED red value
+  *
+  * @note   This function only changes the red value of the LED
+  *         and does not change the other color values or brightness.
+  */
+int32_t apa102_led_red_set(apa102_ctx_t *ctx, uint8_t value)
+{
+    uint8_t data_array[12];
+
+    led_color.red = value;
+
+    data_array[0] = 0x00;
+    data_array[1] = 0x00;
+    data_array[2] = 0x00;
+    data_array[3] = 0x00;
+    data_array[4] = led_color.brightness;
+    data_array[5] = led_color.blue;
+    data_array[6] = led_color.green;
+    data_array[7] = led_color.red;
+    data_array[8] = 0xFF;
+    data_array[9] = 0xFF;
+    data_array[10] = 0xFF;
+    data_array[11] = 0xFF;
+
+    spiBitbang(ctx, data_array, sizeof(data_array));
+
+    return 0;
+}
+
+/**
+  * @brief  Set the Green value of the LED.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  * @param  uint8_t value: LED green value
+  *
+  * @note   This function only changes the green value of the LED
+  *         and does not change the other color values or brightness.
+  */
+int32_t apa102_led_green_set(apa102_ctx_t *ctx, uint8_t value)
+{
+    uint8_t data_array[12];
+
+    led_color.green = value;
+
+    data_array[0] = 0x00;
+    data_array[1] = 0x00;
+    data_array[2] = 0x00;
+    data_array[3] = 0x00;
+    data_array[4] = led_color.brightness;
+    data_array[5] = led_color.blue;
+    data_array[6] = led_color.green;
+    data_array[7] = led_color.red;
+    data_array[8] = 0xFF;
+    data_array[9] = 0xFF;
+    data_array[10] = 0xFF;
+    data_array[11] = 0xFF;
+
+    spiBitbang(ctx, data_array, sizeof(data_array));
+
+    return 0;
+}
+
+/**
+  * @brief  Set the Blue value of the LED.
+  *
+  * @param  apa102_ctx_t *ctx: Interface definition
+  * @param  uint8_t value: LED blue value
+  *
+  * @note   This function only changes the blue value of the LED
+  *         and does not change the other color values or brightness.
+  */
+int32_t apa102_led_blue_set(apa102_ctx_t *ctx, uint8_t value)
+{
+    uint8_t data_array[12];
+
+    led_color.blue = value;
 
     data_array[0] = 0x00;
     data_array[1] = 0x00;
