@@ -501,6 +501,8 @@ wiced_result_t rgb_init( void )
 int rgb_color_get(int argc, char *argv[])
 {
     apa102_color_get(&telemetryData.led);
+
+    return WICED_SUCCESS;
 }
 
 int update_sensor_data(void * data)
@@ -509,14 +511,14 @@ int update_sensor_data(void * data)
     temperature_get(0, NULL);
     rgb_color_get(0, NULL);
 
-    return 0;
+    return WICED_SUCCESS;
 }
 
 int cmd_handler_update(const char *data)
 {
     WPRINT_APP_INFO(("Update Command Handler\r\n"));
 
-    return 0;
+    return WICED_SUCCESS;
 }
 
 int cmd_handler_setLED(const char *data)

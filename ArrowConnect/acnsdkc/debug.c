@@ -3,7 +3,7 @@
 #include <string.h>
 #include "wiced.h"
 
-#if defined(debug)
+#if defined(DEBUG)
 
 static char dbg_buf[DBG_LINE_SIZE];
 

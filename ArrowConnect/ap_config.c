@@ -103,7 +103,6 @@ static wiced_http_server_t*      http_server;
 static wiced_bool_t                 config_use_wps;
 static char                         config_wps_pin[9];
 static wiced_semaphore_t            aws_config_semaphore;
-static platform_dct_security_t  security_dct;
 
 /******************************************************
  *                 Type Definitions
@@ -161,10 +160,6 @@ START_OF_HTTP_PAGE_DATABASE(config_http_page_database)
     /* Add more pages here */
 END_OF_HTTP_PAGE_DATABASE();
 
-/* Variables used for WAR related to handling of HTTP POST by the WICED HTTP Server */
-static uint8_t http_data[2048];
-static wiced_bool_t isHeader = WICED_TRUE;
-static uint16_t header_length = 0;
 /******************************************************
  *             Static Function Definitions
  ******************************************************/
@@ -477,7 +472,6 @@ wiced_result_t aws_configure_device(void)
         /* Start the HTTP server */
 #ifdef USE_HTTPS
         {
-            platform_dct_security_t* dct_security = NULL;
             /* Lock the DCT to allow us to access the certificate and key */
             result = wiced_dct_read_lock( (void**) &dct_security, WICED_FALSE, DCT_SECURITY_SECTION, 0, sizeof( *dct_security ) );
             if ( result != WICED_SUCCESS )
