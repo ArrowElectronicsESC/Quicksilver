@@ -47,6 +47,7 @@ wiced_result_t temperature_init( void );
 wiced_result_t accelerometer_init( void );
 wiced_result_t rgb_init( void );
 int cmd_handler_setLED(const char *data);
+int cmd_handler_updateLED(const char *data);
 int cmd_handler_update(const char *data);
 
 /******************************************************
@@ -71,6 +72,7 @@ static wiced_i2c_device_t i2c_device_accelerometer =
 static command_handler_t arrowCommandHandlers[] = {
     // Command       // Handler
     { "setLED",      &cmd_handler_setLED },
+    { "updateLED",   &cmd_handler_updateLED },
     { "update",      &cmd_handler_update },
 };
 
@@ -550,6 +552,42 @@ int cmd_handler_setLED(const char *data)
 
         json_delete(rgb_color);
         apa102_led_color_set(&rgb_ctx, color);
+    }
+    else
+    {
+        WPRINT_APP_INFO(("json parse failed\r\n"));
+    }
+
+    return 0;
+}
+
+int cmd_handler_updateLED(const char *data)
+{
+    JsonNode * rgb_color = json_decode(data);
+    if(rgb_color)
+    {
+        JsonNode *brightness = json_find_member(rgb_color, "brightness");
+        if(brightness && brightness->tag == JSON_NUMBER)
+        {
+            apa102_led_brightness_set(&rgb_ctx, (int)brightness->number_);
+        }
+        JsonNode *red_val = json_find_member(rgb_color, "red");
+        if(red_val && red_val->tag == JSON_NUMBER)
+        {
+            apa102_led_red_set(&rgb_ctx, (int)red_val->number_);
+        }
+        JsonNode *green_val = json_find_member(rgb_color, "green");
+        if(green_val && green_val->tag == JSON_NUMBER)
+        {
+            apa102_led_green_set(&rgb_ctx, (int)green_val->number_);
+        }
+        JsonNode *blue_val = json_find_member(rgb_color, "blue");
+        if(blue_val && blue_val->tag == JSON_NUMBER)
+        {
+            apa102_led_blue_set(&rgb_ctx, (int)blue_val->number_);
+        }
+
+        json_delete(rgb_color);
     }
     else
     {
