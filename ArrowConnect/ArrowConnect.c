@@ -616,6 +616,12 @@ int arrow_release_download_payload(const char *payload, int size, int flag)
     return 0;
 }
 
+int arrow_release_download_init(void)
+{
+    WPRINT_APP_INFO(("Arrow Release Download Init Callback!\r\n"));
+    return 0;
+}
+
 int arrow_release_download_complete(int flag)
 {
     if(flag == FW_SUCCESS)
@@ -649,7 +655,7 @@ wiced_result_t arrow_cloud_init(void)
 #if !defined(NO_SOFTWARE_UPDATE)
     arrow_gateway_software_update_set_cb(gateway_software_update_cb);
 #endif
-    arrow_software_release_dowload_set_cb(arrow_release_download_payload, arrow_release_download_complete);
+    arrow_software_release_dowload_set_cb(arrow_release_download_init, arrow_release_download_payload, arrow_release_download_complete);
 
     return WICED_SUCCESS;
 }
