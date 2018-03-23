@@ -12,6 +12,7 @@ $(NAME)_DEFINES    += DEBUG
 $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
 $(NAME)_DEFINES    += ARCH_SSL
+$(NAME)_DEFINES    += AUTO_IP_ENABLED
 
 GLOBAL_INCLUDES := . \
                     $(SDK_ROOT) \
@@ -144,7 +145,8 @@ $(NAME)_COMPONENTS := utilities/command_console \
 					  daemons/device_onboarding \
 					  daemons/HTTP_server \
                       daemons/DNS_redirect \
-                      protocols/DNS
+                      protocols/DNS \
+                      daemons/ota_server
                       
-#OTA_APPLICATION       := snip.ota2_extract-$(PLATFORM)
-#OTA_APP               := build/$(OTA_APPLICATION)/binary/$(OTA_APPLICATION).stripped.elf
+OTA_APPLICATION       := snip.ota2_extract-$(PLATFORM)
+OTA_APP               := build/$(OTA_APPLICATION)/binary/$(OTA_APPLICATION).stripped.elf

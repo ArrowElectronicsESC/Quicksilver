@@ -2,6 +2,8 @@
 #include "ArrowConnect.h"
 #include "quicksilver.h"
 #include <debug.h>
+#include "wiced_framework.h"
+#include "wiced_ota_server.h"
 
 /******************************************************
  *                    Constants
@@ -93,6 +95,13 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
+
+static const wiced_ip_setting_t device_init_ip_settings =
+{
+    INITIALISER_IPV4_ADDRESS( .ip_address, MAKE_IPV4_ADDRESS(192, 168, 10,  1) ),
+    INITIALISER_IPV4_ADDRESS( .netmask,    MAKE_IPV4_ADDRESS(255, 255, 255, 0) ),
+    INITIALISER_IPV4_ADDRESS( .gateway,    MAKE_IPV4_ADDRESS(192, 168, 10,  1) ),
+};
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -518,6 +527,14 @@ int cmd_handler_update(const char *data)
 {
     WPRINT_APP_INFO(("Update Command Handler\r\n"));
 
+    wiced_network_down(WICED_STA_INTERFACE);
+    wiced_network_up( WICED_AP_INTERFACE, WICED_USE_INTERNAL_DHCP_SERVER, &device_init_ip_settings );
+    wiced_ota_server_start( WICED_AP_INTERFACE );
+    while ( 1 )
+    {
+        wiced_rtos_delay_milliseconds( 100 );
+    }
+
     return WICED_SUCCESS;
 }
 
@@ -648,10 +665,17 @@ int gateway_software_update_cb(const char *url)
 
 int arrow_release_download_payload(const char *payload, int size, int flag)
 {
+    static uint32_t offset;
+
     if ( flag == FW_FIRST )
     {
         WPRINT_APP_INFO(("Release Download Started\r\n"));
+        offset = 0;
     }
+
+//    wiced_ota2_image_write_data(payload, offset, size);
+
+    offset += size;
 
     return 0;
 }
@@ -666,7 +690,20 @@ int arrow_release_download_complete(int flag)
 {
     if(flag == FW_SUCCESS)
     {
-        WPRINT_APP_INFO(("Release Download Completed Successfully\r\n"));
+//        WPRINT_APP_INFO(("Release Download Completed Successfully\r\n"));
+//
+//        platform_dct_ota2_config_t  dct_ota2_config;
+//
+//        /* set status to extract on next boot */
+//        wiced_ota2_image_update_staged_status(WICED_OTA2_IMAGE_EXTRACT_ON_NEXT_BOOT);
+//
+//        /* set boot_type so bootloader will extract on next boot */
+//        wiced_dct_read_with_copy( &dct_ota2_config, DCT_OTA2_CONFIG_SECTION, 0, sizeof(platform_dct_ota2_config_t) );
+//        dct_ota2_config.boot_type = OTA2_BOOT_EXTRACT_UPDATE;
+//        wiced_dct_write( &dct_ota2_config, DCT_OTA2_CONFIG_SECTION, 0, sizeof(platform_dct_ota2_config_t) );
+//
+//        /* run the ota2_extractor on next boot */
+//        wiced_waf_app_set_boot( DCT_OTA_APP_INDEX, PLATFORM_DEFAULT_LOAD );
     }
     else
     {
