@@ -3,6 +3,7 @@
 #include "quicksilver.h"
 #include <debug.h>
 #include "ota2_ArrowConnect_config.h"
+#include "data/chunk.h"
 
 /******************************************************
  *                    Constants
@@ -15,6 +16,7 @@
 #define MAX_NUM_COMMAND_TABLE  (8)
 #define NUM_I2C_MESSAGE_RETRIES   (3)
 #define PING_TIMEOUT_MS          2000
+#define URI_LEN sizeof(ARROW_API_SOFTWARE_RELEASE_ENDPOINT) + 200
 
 /******************************************************
  *                      Macros
@@ -50,6 +52,8 @@ wiced_result_t rgb_init( void );
 int cmd_handler_setLED(const char *data);
 int cmd_handler_updateLED(const char *data);
 int cmd_handler_update(const char *data);
+static ota2_data_t* init_player(void);
+wiced_result_t ota2_test_get_update(ota2_data_t* player);
 
 /******************************************************
  *                    Structures
@@ -77,6 +81,14 @@ static command_handler_t arrowCommandHandlers[] = {
     { "update",      &cmd_handler_update },
 };
 
+/* template for HTTP GET */
+char ota2_get_request_template[] =
+{
+    "GET %s HTTP/1.1\r\n"
+    "Host: %s%s \r\n"
+    "\r\n"
+};
+
 /******************************************************
  *               Variable Definitions
  ******************************************************/
@@ -94,6 +106,8 @@ static uint8_t whoamI;
 static axis1bit16_t coeff;
 static lin_t lin_hum;
 static lin_t lin_temp;
+ota2_data_t *g_player;
+static wiced_bool_t update_in_progress = WICED_FALSE;
 
 /******************************************************
  *               CTX Interface Function Definitions
@@ -494,7 +508,7 @@ wiced_result_t rgb_init( void )
 
     apa102_init(&rgb_ctx);
 
-    apa102_led_ramp_sequence(&rgb_ctx);
+//    apa102_led_ramp_sequence(&rgb_ctx);
 
     return WICED_SUCCESS;
 }
@@ -518,6 +532,29 @@ int update_sensor_data(void * data)
 int cmd_handler_update(const char *data)
 {
     WPRINT_APP_INFO(("Update Command Handler\r\n"));
+
+//    JsonNode * update_url = json_decode(data);
+//    if(update_url)
+//    {
+//        JsonNode * url = json_find_member(update_url, "url");
+//        if(update_url && update_url->tag == JSON_STRING)
+//        {
+//            WPRINT_APP_INFO(("Update URL: %s\r\n", url));
+//            memset(g_player->uri_to_stream, 0, sizeof(g_player->uri_to_stream));
+//            strlcpy(g_player->uri_to_stream, url, (sizeof(g_player->uri_to_stream) - 1) );
+//            json_delete(update_url);
+//
+//            wiced_result_t result = ota2_test_get_update(g_player);
+//            if (result != WICED_SUCCESS)
+//            {
+//                    WPRINT_APP_INFO(("ota2_test_get_update() failed! %d \r\n", result));
+//            }
+//            else
+//            {
+//                WPRINT_APP_INFO(("ota2_test_get_update() done.\r\n"));
+//            }
+//        }
+//    }
 
     return WICED_SUCCESS;
 }
@@ -657,14 +694,33 @@ int arrow_release_download_payload(const char *payload, int size, int flag)
     return 0;
 }
 
-int arrow_release_download_init(char * token, char * hid)
+int arrow_release_download_init(const char * token, const char * hid)
 {
     WPRINT_APP_INFO(("Arrow Release Download Init Callback!\r\n"));
     WPRINT_APP_INFO(("Download Token: %s\r\n", token));
     WPRINT_APP_INFO(("Download HID: %s\r\n", hid));
 
-//    CREATE_CHUNK(uri, URI_LEN);
-//      int n = snprintf(uri, URI_LEN, ARROW_API_SOFTWARE_RELEASE_ENDPOINT "/%s/%s/file", th->hid, th->token);
+    CREATE_CHUNK(uri, URI_LEN);
+    int n = snprintf(uri, URI_LEN, ARROW_API_SOFTWARE_RELEASE_ENDPOINT "/%s/%s/file", hid, token);
+    uri[n] = 0x0;
+
+    WPRINT_APP_INFO(("Update URL: %s\r\n", uri));
+    memset(g_player->uri_to_stream, 0, sizeof(g_player->uri_to_stream));
+    strlcpy(g_player->uri_to_stream, uri, (sizeof(g_player->uri_to_stream) - 1) );
+
+    update_in_progress = WICED_TRUE;
+
+    wiced_result_t result = ota2_test_get_update(g_player);
+    if (result != WICED_SUCCESS)
+    {
+            WPRINT_APP_INFO(("ota2_test_get_update() failed! %d \r\n", result));
+    }
+    else
+    {
+        WPRINT_APP_INFO(("ota2_test_get_update() done.\r\n"));
+    }
+
+    FREE_CHUNK(uri);
 
     return 0;
 }
@@ -707,6 +763,19 @@ wiced_result_t arrow_cloud_init(void)
     return WICED_SUCCESS;
 }
 
+static wiced_result_t ota2_init(void)
+{
+    ota2_data_t*   player;
+
+    if ((player = init_player()) == NULL)
+    {
+        return WICED_ERROR;
+    }
+    g_player = player;
+
+    return WICED_SUCCESS;
+}
+
 void application_start( )
 {
     /* Initialize the WICED platform */
@@ -716,17 +785,376 @@ void application_start( )
 
     VERIFY_SUCCESS(arrow_cloud_init());
 
+    ota2_init();
+
     while(1)
     {
-        arrow_mqtt_connect_routine();
-        int ret = arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
-        switch ( ret ) {
-        case ROUTINE_RECEIVE_EVENT:
-            arrow_mqtt_disconnect_routine();
-            arrow_mqtt_event_proc();
-            break;
-        default:
-            break;
+        if(!update_in_progress)
+        {
+            arrow_mqtt_connect_routine();
+            int ret = arrow_mqtt_send_telemetry_routine(update_sensor_data, &telemetryData);
+            switch ( ret ) {
+            case ROUTINE_RECEIVE_EVENT:
+                arrow_mqtt_disconnect_routine();
+                arrow_mqtt_event_proc();
+                break;
+            default:
+                break;
+            }
+        }
+        else
+        {
+            DELAY_MS(500);
         }
     }
 }
+
+wiced_result_t my_ota2_callback(void* session_id, wiced_ota2_service_status_t status, uint32_t value, void* opaque )
+{
+    ota2_data_t*    player = (ota2_data_t*)opaque;
+
+    UNUSED_PARAMETER(session_id);
+    UNUSED_PARAMETER(player);
+
+
+    switch( status )
+    {
+    case OTA2_SERVICE_STARTED:      /* Background service has started
+                                         * return - None                                                             */
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : SERVE STARTED -----------------------------\r\n"));
+        break;
+    case OTA2_SERVICE_AP_CONNECT_ERROR:
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : AP CONNECT_ERROR -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCESS (not used by service). This is informational \r\n"));
+        break;
+
+    case OTA2_SERVICE_SERVER_CONNECT_ERROR:
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : SERVER_CONNECT_ERROR -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCESS (not used by service). This is informational \r\n"));
+        break;
+
+    case OTA2_SERVICE_AP_CONNECTED:
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : AP_CONNECTED -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCESS (not used by service). This is informational \r\n"));
+        break;
+
+    case OTA2_SERVICE_SERVER_CONNECTED:
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : SERVER_CONNECTED -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCESS (not used by service). This is informational \r\n"));
+        break;
+
+
+    case OTA2_SERVICE_CHECK_FOR_UPDATE: /* Time to check for updates.
+                                         * return - WICED_SUCCESS = Service will check for update availability
+                                         *        - WICED_ERROR   = Application will check for update availability   */
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : CHECK_FOR_UPDATE -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCCESS, let Service do the checking.\r\n"));
+        return WICED_SUCCESS;
+
+    case OTA2_SERVICE_UPDATE_AVAILABLE: /* Service has contacted server, update is available
+                                         * return - WICED_SUCCESS = Application indicating that it wants the
+                                         *                           OTA Service to perform the download
+                                         *        - WICED_ERROR   = Application indicating that it will perform
+                                         *                           the download, the OTA Service will do nothing.  */
+    {
+        /* the OTA2 header for the update is pointed to by the value argument and is only valid for this function call */
+        wiced_ota2_image_header_t* ota2_header;
+
+        ota2_header = (wiced_ota2_image_header_t*)value;
+
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : UPDATE_AVAILABLE -----------------------------\r\n"));
+        /* the OTA2 header for the update is pointed to by the value argument and is only valid for this function call */
+
+        /*
+         * In an actual application, the application would look at the headers information and decide if the
+         * file on the update server is a newer version that the currently running application.
+         *
+         * If the application wants the update to continue, it would return WICED_SUCCESS here
+         * If not, return WICED_ERROR
+         *
+         */
+        WPRINT_APP_INFO(("Current Version %d.%d\r\n", player->dct_app->ota2_major_version,
+                                                                      player->dct_app->ota2_minor_version));
+        WPRINT_APP_INFO(("   OTA2 Version %d.%d\r\n", ota2_header->major_version, ota2_header->minor_version));
+
+#if defined(CHECK_OTA2_UPDATE_VERSION)
+        if ((player->dct_app->ota2_major_version > ota2_header->major_version) ||
+            ((player->dct_app->ota2_major_version == ota2_header->major_version) &&
+             (player->dct_app->ota2_minor_version >= ota2_header->minor_version)) )
+        {
+            WPRINT_APP_INFO(("OTA2 Update Version Fail - return ERROR, do not update!\r\n"));
+            return WICED_ERROR;
+        }
+#endif
+        WPRINT_APP_INFO(("        return SUCCESS, let Service perform the download.\r\n"));
+        return WICED_SUCCESS;
+    }
+
+    case OTA2_SERVICE_DOWNLOAD_STATUS:  /* Download status - value has % complete (0-100)
+                                         *   NOTE: This will only occur when Service is performing download
+                                         * return - WICED_SUCCESS = Service will continue download
+                                         *        - WICED_ERROR   = Service will STOP download and service will
+                                         *                          issue OTA2_SERVICE_TIME_TO_UPDATE_ERROR           */
+        WPRINT_APP_INFO(("my_ota2_callback() OTA2_SERVICE_DOWNLOAD_STATUS %ld %%!\r\n", value));
+        return WICED_SUCCESS;
+
+    case OTA2_SERVICE_PERFORM_UPDATE:   /* Download is complete
+                                         * return - WICED_SUCCESS = Service will inform Bootloader to extract
+                                         *                          and update on next power cycle
+                                         *        - WICED_ERROR   = Service will inform Bootloader that download
+                                         *                          is complete - Bootloader will NOT extract        */
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : PERFORM_UPDATE -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCCESS, let Service extract update on next reboot.\r\n"));
+        return WICED_SUCCESS;
+
+    case OTA2_SERVICE_UPDATE_ERROR:     /* There was an error in transmission
+                                         * This will only occur if Error during Service performing data transfer
+                                         * upon return - if retry_interval is set, Service will use retry_interval
+                                         *               else, Service will retry on next check_interval
+                                         */
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : UPDATE_ERROR -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCCESS, Service will retry as parameters defined in init.\r\n"));
+        return WICED_SUCCESS;
+
+    case OTA2_SERVICE_UPDATE_ENDED:     /* All update actions for this check are complete.
+                                         * This callback is to allow the application to take any actions when
+                                         * the service is done checking / downloading an update
+                                         * (succesful, unavailable, or error)
+                                         * return - None                                                             */
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : UPDATE_ENDED -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCESS (not used by service). This is informational \r\n"));
+        update_in_progress = WICED_FALSE;
+        if ((value == WICED_SUCCESS) && (player->dct_app->ota2_reboot_after_download != 0))
+        {
+            WPRINT_APP_INFO(("        REBOOTING !!!\r\n"));
+            wiced_framework_reboot();
+        }
+
+        break;
+
+    case OTA2_SERVICE_STOPPED:
+        WPRINT_APP_INFO(("----------------------------- OTA2 Service Called : SERVICE ENDED -----------------------------\r\n"));
+        WPRINT_APP_INFO(("        return SUCESS (not used by service). This is informational \r\n"));
+        break;
+
+    default:
+        WPRINT_APP_INFO(("my_ota2_callback() UNKNOWN STATUS %d!\r\n", status));
+        break;
+    }
+
+    return WICED_SUCCESS;
+}
+
+wiced_result_t ota2_test_get_update(ota2_data_t* player)
+{
+    wiced_result_t result = WICED_ERROR;
+
+    /* get the image from the server & save in staging area */
+
+    wiced_ota2_service_uri_split(player->uri_to_stream, player->ota2_host_name, sizeof(player->ota2_host_name),
+                                     player->ota2_file_path, sizeof(player->ota2_file_path), &player->ota2_bg_params.port);
+
+    player->ota2_bg_params.host_name                = player->ota2_host_name;
+    player->ota2_bg_params.file_path                = player->ota2_file_path;
+
+    player->ota2_bg_params.auto_update              = 0;
+    player->ota2_bg_params.initial_check_interval   = 5;            /* initial check in 5 seconds */
+    player->ota2_bg_params.check_interval           = 10 * 60;      /* 10 minutes - use SECONDS_IN_24_HOURS for 1 day */
+    player->ota2_bg_params.retry_check_interval     = SECONDS_PER_MINUTE;   /* minimum retry is 1 minute */
+    player->ota2_bg_params.max_retries              = 3;       /* maximum retries per update attempt         */
+    player->ota2_bg_params.default_ap_info          = player->dct_wifi->stored_ap_list;
+    player->ota2_bg_params.ota2_interface           = player->dct_network->interface;
+#ifdef WICED_USE_ETHERNET_INTERFACE
+    if (player->ota2_bg_params.ota2_interface == WICED_ETHERNET_INTERFACE)
+    {
+        if ( wiced_network_is_up( WICED_ETHERNET_INTERFACE) == WICED_FALSE )
+        {
+            /* Currently not connected to Ethernet, use WiFI */
+            player->ota2_bg_params.ota2_interface = WICED_STA_INTERFACE;
+        }
+    }
+#endif
+    if (player->ota2_bg_params.ota2_interface != WICED_ETHERNET_INTERFACE)
+    {
+        player->ota2_bg_params.ota2_ap_info             = NULL;
+        player->ota2_bg_params.ota2_ap_list             = &player->dct_wifi->stored_ap_list[0]; /* use the DCT AP list */
+        player->ota2_bg_params.ota2_ap_list_count       = CONFIG_AP_LIST_SIZE;
+    }
+
+    player->deinit_ota2_bg = WICED_TRUE;
+    if (player->ota2_bg_service == NULL)
+    {
+        player->ota2_bg_service = wiced_ota2_service_init(&player->ota2_bg_params, player);
+        WPRINT_APP_INFO(("ota2_test_get_update() wiced_ota2_service_init() bg_service:%p \r\n", player->ota2_bg_service));
+    }
+    else
+    {
+        /* bg service already started - this is OK, just don't deinit at the end of this function */
+        player->deinit_ota2_bg = WICED_FALSE;
+    }
+
+    if (player->ota2_bg_service != NULL)
+    {
+        /* add a callback */
+        result = wiced_ota2_service_register_callback(player->ota2_bg_service, my_ota2_callback);
+        if (result != WICED_SUCCESS)
+        {
+            WPRINT_APP_INFO(("ota2_test_get_update register callback failed! %d \r\n", result));
+            wiced_ota2_service_deinit(player->ota2_bg_service);
+            player->ota2_bg_service = NULL;
+        }
+
+        if (player->ota2_bg_service != NULL)
+        {
+            WPRINT_APP_INFO(("Download the OTA Image file - get it NOW!\r\n"));
+            /* NOTE: THis is a blocking call! */
+            result = wiced_ota2_service_check_for_updates(player->ota2_bg_service);
+            if (result != WICED_SUCCESS)
+            {
+                WPRINT_APP_INFO(("ota2_test_get_update wiced_ota2_service_check_for_updates() failed! %d \r\n", result));
+            }
+        }
+    }
+    return result;
+}
+
+static ota2_data_t* init_player(void)
+{
+    ota2_data_t*            player = NULL;
+    wiced_result_t          result;
+    uint32_t                tag;
+    ota2_boot_type_t        boot_type;
+
+   /*
+     * Allocate the main data structure.
+     */
+    player = calloc_named("ota2_test", 1, sizeof(ota2_data_t));
+    if (player == NULL)
+    {
+        WPRINT_APP_INFO(("Unable to allocate player structure\r\n"));
+        return NULL;
+    }
+
+    /* read in our configurations */
+    ota2_test_config_init(player);
+
+    /* determine if this is a first boot, factory reset, or after an update boot */
+    boot_type = wiced_ota2_get_boot_type();
+    switch( boot_type )
+    {
+        case OTA2_BOOT_FAILSAFE_FACTORY_RESET:
+        case OTA2_BOOT_FAILSAFE_UPDATE:
+        default:
+            /* We should never get here! */
+            WPRINT_APP_INFO(("Unexpected boot_type %d!\r\n", boot_type));
+            /* FALL THROUGH */
+        case OTA2_BOOT_NEVER_RUN_BEFORE:
+            WPRINT_APP_INFO(("First BOOT EVER\r\n"));
+            /* Set the reboot type back to normal so we don't think we updated next reboot */
+            wiced_dct_ota2_save_copy( OTA2_BOOT_NORMAL );
+            break;
+        case OTA2_BOOT_NORMAL:
+            WPRINT_APP_INFO(("Normal reboot - count:%ld.\r\n", player->dct_app->reboot_count));
+            break;
+        case OTA2_BOOT_EXTRACT_FACTORY_RESET:   /* pre-OTA2 failsafe ota2_bootloader designation for OTA2_BOOT_FACTORY_RESET */
+        case OTA2_BOOT_FACTORY_RESET:
+            WPRINT_APP_INFO(("Factory Reset Occurred!\r\n"));
+#if RESTORE_DCT_APP_SETTINGS
+            over_the_air_2_app_restore_settings_after_update(player, boot_type);
+#endif
+            /* Set the reboot type back to normal so we don't think we updated next reboot */
+            wiced_dct_ota2_save_copy( OTA2_BOOT_NORMAL );
+            break;
+        case OTA2_BOOT_EXTRACT_UPDATE:   /* pre-OTA2 failsafe ota2_bootloader designation for OTA2_BOOT_UPDATE */
+        case OTA2_BOOT_SOFTAP_UPDATE:    /* pre-OTA2 failsafe ota2_bootloader designation for a SOFTAP update */
+        case OTA2_BOOT_UPDATE:
+            WPRINT_APP_INFO(("Update Occurred!\r\n"));
+#if RESTORE_DCT_APP_SETTINGS
+            over_the_air_2_app_restore_settings_after_update(player, boot_type);
+#endif
+            /* Set the reboot type back to normal so we don't think we updated next reboot */
+            wiced_dct_ota2_save_copy( OTA2_BOOT_NORMAL );
+            break;
+        case OTA2_BOOT_LAST_KNOWN_GOOD:
+            WPRINT_APP_INFO(("Last Known Good used!\r\n"));
+            break;
+    }
+
+    /* Get RTC Clock time and set it here */
+    {
+        wiced_time_t time = 0;
+        wiced_time_set_time( &time );
+    }
+
+    return player;
+}
+
+
+wiced_result_t over_the_air_2_app_restore_settings_after_update(ota2_data_t* player, ota2_boot_type_t boot_type)
+{
+    uint16_t major = 0, minor = 0;
+    platform_dct_network_config_t   dct_network = { 0 };
+    platform_dct_wifi_config_t      dct_wifi = { 0 };
+    ota2_dct_t                      dct_app = { 0 };
+
+    /* read in our configurations from the DCT copy */
+    /* network */
+    if (wiced_dct_ota2_read_saved_copy( &dct_network, DCT_NETWORK_CONFIG_SECTION, 0, sizeof(platform_dct_network_config_t)) != WICED_SUCCESS)
+    {
+        WPRINT_APP_INFO(("over_the_air_2_app_restore_settings_after_update() failed reading Network Config!\r\n"));
+        return WICED_ERROR;
+    }
+
+    /* wifi */
+    if (wiced_dct_ota2_read_saved_copy( &dct_wifi, DCT_WIFI_CONFIG_SECTION, 0, sizeof(platform_dct_wifi_config_t)) != WICED_SUCCESS)
+    {
+        WPRINT_APP_INFO(("over_the_air_2_app_restore_settings_after_update() failed reading WiFi Config!\r\n"));
+        return WICED_ERROR;
+    }
+
+    /* App */
+    if (wiced_dct_ota2_read_saved_copy( &dct_app, DCT_APP_SECTION, 0, sizeof(ota2_dct_t)) != WICED_SUCCESS)
+    {
+        WPRINT_APP_INFO(("over_the_air_2_app_restore_settings_after_update() failed reading App Config!\r\n"));
+        return WICED_ERROR;
+    }
+
+    memcpy(player->dct_network, &dct_network, sizeof(platform_dct_network_config_t));
+    memcpy(player->dct_wifi, &dct_wifi, sizeof(platform_dct_wifi_config_t));
+    memcpy(player->dct_app, &dct_app, sizeof(ota2_dct_t));
+
+    /* update version number based on boot type */
+    switch (boot_type)
+    {
+        default:
+            break;
+        case OTA2_BOOT_EXTRACT_FACTORY_RESET:   /* pre-OTA2 failsafe ota2_bootloader designation for OTA2_BOOT_FACTORY_RESET */
+        case OTA2_BOOT_FACTORY_RESET:
+            if (wiced_ota2_image_get_version( WICED_OTA2_IMAGE_TYPE_FACTORY_RESET_APP, &major, &minor) == WICED_SUCCESS)
+            {
+                player->dct_app->ota2_major_version = major;
+                player->dct_app->ota2_minor_version = minor;
+            }
+            break;
+        case OTA2_BOOT_SOFTAP_UPDATE:
+        case OTA2_BOOT_EXTRACT_UPDATE:   /* pre-OTA2 failsafe ota2_bootloader designation for OTA2_BOOT_UPDATE */
+        case OTA2_BOOT_UPDATE:
+            if (wiced_ota2_image_get_version( WICED_OTA2_IMAGE_TYPE_STAGED, &major, &minor) == WICED_SUCCESS)
+            {
+                player->dct_app->ota2_major_version = major;
+                player->dct_app->ota2_minor_version = minor;
+            }
+            break;
+    }
+
+    /* now, save them all! */
+    if (ota2_save_config(player) != WICED_SUCCESS)
+    {
+        WPRINT_APP_INFO(("over_the_air_2_app_restore_settings_after_update() failed Saving Config!\r\n"));
+        return WICED_ERROR;
+    }
+
+    WPRINT_APP_INFO(("Restored saved Configuration!\r\n"));
+    return WICED_SUCCESS;
+}
+
