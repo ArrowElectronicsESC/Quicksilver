@@ -6,7 +6,7 @@ PROJ_DIR := .
 WIFI_CONFIG_DCT_H := wifi_config_dct.h
 APPLICATION_DCT := ap_config_dct.c
 
-$(NAME)_DEFINES    += DEBUG
+#$(NAME)_DEFINES    += DEBUG
 #$(NAME)_DEFINES    += DEBUG_WOLFSSL
 #$(NAME)_DEFINES    += HTTP_DEBUG
 $(NAME)_DEFINES    += USER_BYTE_CONVERTER
@@ -20,6 +20,7 @@ GLOBAL_INCLUDES := . \
                     $(SDK_ROOT)/sys \
                     $(PROJ_DIR)/acnsdkc \
                     $(SDK_ROOT)/src/wolfSSL \
+                    $(SDK_ROOT)/src/wolfSSL/wolfssl\
 
 $(NAME)_SOURCES	:= $(PROJ_DIR)/ArrowConnect.c \
                    $(PROJ_DIR)/ap_config.c \
