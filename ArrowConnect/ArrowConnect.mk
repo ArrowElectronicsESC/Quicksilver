@@ -4,7 +4,7 @@ SDK_ROOT = ../../../libraries/acn-sdk-c
 PROJ_DIR := .
 
 WIFI_CONFIG_DCT_H := wifi_config_dct.h
-APPLICATION_DCT := ap_config_dct.c
+APPLICATION_DCT := acn_config_dct.c
 
 #$(NAME)_DEFINES    += DEBUG
 #$(NAME)_DEFINES    += DEBUG_WOLFSSL
@@ -13,6 +13,7 @@ $(NAME)_DEFINES    += USER_BYTE_CONVERTER
 #$(NAME)_DEFINES    += _POSIX_THREADS
 $(NAME)_DEFINES    += ARCH_SSL
 $(NAME)_DEFINES    += AUTO_IP_ENABLED
+$(NAME)_DEFINES    += DBG_LINE_SIZE=256
 
 GLOBAL_INCLUDES := . \
                     $(SDK_ROOT) \
@@ -23,8 +24,8 @@ GLOBAL_INCLUDES := . \
                     $(SDK_ROOT)/src/wolfSSL/wolfssl\
 
 $(NAME)_SOURCES	:= $(PROJ_DIR)/ArrowConnect.c \
-                   $(PROJ_DIR)/ap_config.c \
-                   $(PROJ_DIR)/ap_common.c \
+                   $(PROJ_DIR)/acn_config.c \
+                   $(PROJ_DIR)/acn_common.c \
                    $(PROJ_DIR)/acnsdkc/bsd/socket.c \
                    $(PROJ_DIR)/acnsdkc/time/time.c \
                    $(PROJ_DIR)/acnsdkc/debug.c \

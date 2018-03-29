@@ -1,5 +1,0 @@
-
-NAME := Lib_LIS2DH12
-
-$(NAME)_SOURCES := lis2dh12.c
-GLOBAL_INCLUDES := .

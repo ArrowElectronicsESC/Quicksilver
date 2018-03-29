@@ -1,5 +1,0 @@
-
-NAME := Lib_HTS221
-
-$(NAME)_SOURCES := hts221.c
-GLOBAL_INCLUDES := .

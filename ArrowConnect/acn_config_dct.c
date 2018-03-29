@@ -12,19 +12,15 @@
  *
  */
 
-#include "./ap_config.h"
+#include "./acn_config.h"
 #include "wiced_framework.h"
-#include "ota2_ArrowConnect_dct.h"
 
 
 /******************************************************
  *               Variable Definitions
  ******************************************************/
-DEFINE_APP_DCT(ota2_dct_t)
+DEFINE_APP_DCT(acn_config_dct_t)
 {
     .is_configured = WICED_FALSE,
-    .device_name = DEFAULT_DEVICE_NAME,
-    .reboot_count       = 0,
-    .ota2_major_version = APP_VERSION_FOR_OTA2_MAJOR,
-    .ota2_minor_version = APP_VERSION_FOR_OTA2_MINOR,
+    .device_name = DEFAULT_DEVICE_NAME
 };
