@@ -18,6 +18,11 @@ int32_t apa102_init(apa102_ctx_t *ctx)
     ctx->pin_set(ctx, ctx->data_in_pin);
     ctx->pin_set(ctx, ctx->clk_in_pin);
 
+    led_color.brightness = 0;
+    led_color.red = 0;
+    led_color.green = 0;
+    led_color.blue = 0;
+
     return 0;
 }
 

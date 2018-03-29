@@ -26,6 +26,19 @@
 /******************************************************
  *                   Enumerations
  ******************************************************/
+enum LED_COLOR_VALUES
+{
+    LED_COLOR_OFF = 0x00,
+    LED_COLOR_MIN = 0x01,
+    LED_COLOR_MAX = 0xFF
+};
+
+enum LED_BRIGHTNESS_VALUES
+{
+    LED_BRIGHTNESS_OFF = 0x00,
+    LED_BRIGHTNESS_MIN = 0x01,
+    LED_BRIGHTNESS_MAX = 0x1F
+};
 
 /******************************************************
  *                 Type Definitions
@@ -484,7 +497,9 @@ wiced_result_t rgb_init( void )
 
     apa102_init(&rgb_ctx);
 
-    apa102_led_ramp_sequence(&rgb_ctx);
+    // Set the LED red during initialization
+    apa102_led_brightness_set(&rgb_ctx, LED_BRIGHTNESS_MIN);
+    apa102_led_red_set(&rgb_ctx, LED_COLOR_MAX);
 
     return WICED_SUCCESS;
 }
@@ -640,7 +655,7 @@ wiced_result_t quicksilver_init(void)
     }
 
     /* Initialize the AP for receiving Wi-Fi credentials if needed */
-    if(aws_app_init() != WICED_SUCCESS)
+    if(acn_app_init() != WICED_SUCCESS)
     {
         return WICED_ERROR;
     }
@@ -713,6 +728,10 @@ wiced_result_t arrow_cloud_init(void)
     arrow_gateway_software_update_set_cb(gateway_software_update_cb);
 #endif
     arrow_software_release_dowload_set_cb(arrow_release_download_init, arrow_release_download_payload, arrow_release_download_complete);
+
+    // Initialization complete, set the LED green.
+    apa102_led_red_set(&rgb_ctx, LED_COLOR_OFF);
+    apa102_led_green_set(&rgb_ctx, LED_COLOR_MAX);
 
     return WICED_SUCCESS;
 }
