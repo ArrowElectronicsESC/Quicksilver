@@ -46,9 +46,19 @@ typedef struct {
 
 int32_t apa102_init(apa102_ctx_t *ctx);
 
+void apa102_color_get(apa102_color_t *pColor);
+
 int32_t apa102_led_off(apa102_ctx_t *ctx);
 
 int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color);
+
+int32_t apa102_led_brightness_set(apa102_ctx_t *ctx, uint8_t value);
+
+int32_t apa102_led_red_set(apa102_ctx_t *ctx, uint8_t value);
+
+int32_t apa102_led_green_set(apa102_ctx_t *ctx, uint8_t value);
+
+int32_t apa102_led_blue_set(apa102_ctx_t *ctx, uint8_t value);
 
 int32_t apa102_led_rainbow_sequence(apa102_ctx_t *ctx);
 

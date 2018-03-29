@@ -13,4 +13,5 @@ typedef struct {
   float temperature;
   float humidity;
   struct axis accelerometer;
+  apa102_color_t led;
 } quicksilver_data;

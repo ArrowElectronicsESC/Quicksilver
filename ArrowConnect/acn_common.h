@@ -8,9 +8,14 @@
  * written permission of Broadcom Corporation.
  */
 
+/** @file
+ *
+ */
+
+#include "./acn_config.h"
 #include "wiced.h"
-#include "arrow/gateway.h"
-#include "arrow/device.h"
+#include "resources.h"
+#include "gpio_button.h"
 
 #pragma once
 
@@ -22,7 +27,6 @@ extern "C" {
 /******************************************************
  *                      Macros
  ******************************************************/
-#define DEFAULT_DEVICE_NAME   DEVICE_NAME
 
 /******************************************************
  *                    Constants
@@ -35,14 +39,6 @@ extern "C" {
 /******************************************************
  *                 Type Definitions
  ******************************************************/
-typedef struct aws_config_dct_s
-{
-    wiced_bool_t  is_configured;
-    char          device_name[32];
-    char          gateway_hid[64];
-    char          device_hid[64];
-    char          device_eid[64];
-} aws_config_dct_t;
 
 /******************************************************
  *                    Structures
@@ -55,8 +51,7 @@ typedef struct aws_config_dct_s
 /******************************************************
  *               Function Declarations
  ******************************************************/
-wiced_result_t aws_configure_device(void);
-
+wiced_result_t acn_app_init( void );
 
 #ifdef __cplusplus
 } /* extern "C" */

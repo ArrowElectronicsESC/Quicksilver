@@ -46,7 +46,7 @@
 #include "wiced_network.h"
 #include "wiced_framework.h"
 #include "wiced_wps.h"
-#include "ap_config.h"
+#include "acn_config.h"
 
 #ifdef USE_HTTPS
 #include "wiced_tls.h"
@@ -102,8 +102,7 @@ static wiced_http_server_t*      http_server;
 
 static wiced_bool_t                 config_use_wps;
 static char                         config_wps_pin[9];
-static wiced_semaphore_t            aws_config_semaphore;
-static platform_dct_security_t  security_dct;
+static wiced_semaphore_t            acn_config_semaphore;
 
 /******************************************************
  *                 Type Definitions
@@ -161,10 +160,6 @@ START_OF_HTTP_PAGE_DATABASE(config_http_page_database)
     /* Add more pages here */
 END_OF_HTTP_PAGE_DATABASE();
 
-/* Variables used for WAR related to handling of HTTP POST by the WICED HTTP Server */
-static uint8_t http_data[2048];
-static wiced_bool_t isHeader = WICED_TRUE;
-static uint16_t header_length = 0;
 /******************************************************
  *             Static Function Definitions
  ******************************************************/
@@ -332,7 +327,7 @@ static int32_t process_wps_go( const char* url_parameters, const char* url_query
     }
 
     /* Config has been set. Continue the main thread */
-    wiced_rtos_set_semaphore(&aws_config_semaphore);
+    wiced_rtos_set_semaphore(&acn_config_semaphore);
     return 1;
 }
 
@@ -415,28 +410,28 @@ static int32_t process_connect( const char* url_parameters, const char* url_quer
     wiced_dct_write( &temp_config, DCT_WIFI_CONFIG_SECTION, 0, sizeof(temp_config) );
 
     /* Config has been set. Continue the main thread */
-    wiced_rtos_set_semaphore(&aws_config_semaphore);
+    wiced_rtos_set_semaphore(&acn_config_semaphore);
     return 0;
 }
 
 /******************************************************
  *               Function Definitions
  ******************************************************/
-wiced_result_t aws_configure_device(void)
+wiced_result_t acn_configure_device(void)
 {
     wiced_bool_t             device_configured;
     wiced_result_t           result;
     wiced_config_soft_ap_t*  config_ap;
-    aws_config_dct_t*        aws_dct_ptr;
+    acn_config_dct_t*        acn_dct_ptr;
 
-    result = wiced_dct_read_lock( (void**) &aws_dct_ptr, WICED_FALSE, DCT_APP_SECTION, 0, sizeof( aws_config_dct_t ) );
+    result = wiced_dct_read_lock( (void**) &acn_dct_ptr, WICED_FALSE, DCT_APP_SECTION, 0, sizeof( acn_config_dct_t ) );
     if ( result != WICED_SUCCESS )
     {
         WPRINT_APP_INFO(("Unable to lock DCT to read certificate\n"));
         return WICED_ERROR;
     }
-    device_configured = aws_dct_ptr->is_configured;
-    wiced_dct_read_unlock( aws_dct_ptr, WICED_FALSE );
+    device_configured = acn_dct_ptr->is_configured;
+    wiced_dct_read_unlock( acn_dct_ptr, WICED_FALSE );
 
     if ( device_configured != WICED_TRUE )
     {
@@ -445,7 +440,7 @@ wiced_result_t aws_configure_device(void)
         /* Initialize variables */
         config_use_wps = WICED_FALSE;
 
-        wiced_rtos_init_semaphore(&aws_config_semaphore);
+        wiced_rtos_init_semaphore(&acn_config_semaphore);
 
         /* Prepare the HTTP server */
         http_server = malloc(sizeof(*http_server));
@@ -477,7 +472,6 @@ wiced_result_t aws_configure_device(void)
         /* Start the HTTP server */
 #ifdef USE_HTTPS
         {
-            platform_dct_security_t* dct_security = NULL;
             /* Lock the DCT to allow us to access the certificate and key */
             result = wiced_dct_read_lock( (void**) &dct_security, WICED_FALSE, DCT_SECURITY_SECTION, 0, sizeof( *dct_security ) );
             if ( result != WICED_SUCCESS )
@@ -503,7 +497,7 @@ wiced_result_t aws_configure_device(void)
         wiced_http_server_start(http_server, HTTP_PORT, 10, config_http_page_database, WICED_CONFIG_INTERFACE, DEFAULT_URL_PROCESSOR_STACK_SIZE );
 #endif
         /* Wait for configuration to complete */
-        wiced_rtos_get_semaphore(&aws_config_semaphore, WICED_WAIT_FOREVER);
+        wiced_rtos_get_semaphore(&acn_config_semaphore, WICED_WAIT_FOREVER);
 
         /* Cleanup HTTP server */
 #ifdef USE_HTTPS
@@ -513,7 +507,7 @@ wiced_result_t aws_configure_device(void)
 #endif
         free( http_server );
 
-        wiced_rtos_deinit_semaphore(&aws_config_semaphore);
+        wiced_rtos_deinit_semaphore(&acn_config_semaphore);
 
         /* Cleanup DNS server */
         wiced_dns_redirector_stop(&dns_redirector);
