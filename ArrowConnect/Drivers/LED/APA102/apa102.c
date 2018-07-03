@@ -89,7 +89,7 @@ void spiBitbang(apa102_ctx_t *ctx, uint8_t * data, uint16_t length)
   * @param  apa102_color_t color: LED color
   *
   */
-int32_t apa102_led_color_set(apa102_ctx_t *ctx, apa102_color_t color)
+int32_t apa102_led_set(apa102_ctx_t *ctx, apa102_color_t color)
 {
     uint8_t data_array[12];
 

@@ -26,6 +26,7 @@ GLOBAL_INCLUDES := . \
 $(NAME)_SOURCES	:= $(PROJ_DIR)/ArrowConnect.c \
                    $(PROJ_DIR)/acn_config.c \
                    $(PROJ_DIR)/acn_common.c \
+                   $(PROJ_DIR)/quicksilver.c \
                    $(PROJ_DIR)/acnsdkc/bsd/socket.c \
                    $(PROJ_DIR)/acnsdkc/time/time.c \
                    $(PROJ_DIR)/acnsdkc/debug.c \
