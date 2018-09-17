@@ -22,6 +22,6 @@
 #define DEVICE_UID_PREFIX           "Qs-device"
 #define DEVICE_UID_SUFFIX           "device"
 
-#define TELEMETRY_DELAY             100
+#define TELEMETRY_DELAY             1000
 
 #endif
