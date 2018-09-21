@@ -230,7 +230,7 @@ wiced_result_t parseCommand_RGB(JsonNode * node)
             }
 
             WPRINT_APP_INFO(("RGB Value: Brightness-%d, R-%d, G-%d, B-%d\r\n",
-                    commandColor.brightness, commandColor.red, commandColor.blue, commandColor.green));
+                    commandColor.brightness, commandColor.red, commandColor.green, commandColor.blue));
             apa102_led_color_set(&rgb_ctx, commandColor);
         }
         else
