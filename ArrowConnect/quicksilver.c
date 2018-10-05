@@ -132,6 +132,51 @@ static wiced_i2c_device_t i2c_device_accelerometer =
         .speed_mode = I2C_STANDARD_SPEED_MODE,
 };
 
+/******************************************************
+ *               Public Function Definitions
+ ******************************************************/
+/* Function for initializing the Quicksilver board and on-board hardware */
+wiced_result_t quicksilver_init(void)
+{
+    /* Initialize I2C*/
+    if(i2c_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    /* Initialize GPIO*/
+    if(gpio_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    /* Initialize the RGB */
+    if(rgb_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    /* probe for temperature device */
+    if(temperature_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    /* probe for accelerometer device */
+    if(accelerometer_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    /* Initialize the AP for receiving Wi-Fi credentials if needed */
+    if(acn_app_init() != WICED_SUCCESS)
+    {
+        return WICED_ERROR;
+    }
+
+    return WICED_SUCCESS;
+}
+
 /* Function for probing sensors on the I2C bus. */
 wiced_result_t i2c_sensor_probe(void)
 {

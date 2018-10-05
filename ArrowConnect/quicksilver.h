@@ -24,6 +24,7 @@ typedef struct {
   color_t led;
 } quicksilver_data;
 
+wiced_result_t quicksilver_init(void);
 wiced_result_t i2c_init(void);
 wiced_result_t gpio_init(void);
 wiced_result_t temperature_init( void );

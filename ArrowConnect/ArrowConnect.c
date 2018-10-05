@@ -294,48 +294,6 @@ int cmd_handler_updateLED(const char *data)
     return 0;
 }
 
-/* Function for initializing the Quicksilver board and on-board hardware */
-wiced_result_t quicksilver_init(void)
-{
-    /* Initialize I2C*/
-    if(i2c_init() != WICED_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
-
-    /* Initialize GPIO*/
-    if(gpio_init() != WICED_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
-
-    /* Initialize the RGB */
-    if(rgb_init() != WICED_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
-
-    /* probe for temperature device */
-    if(temperature_init() != WICED_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
-
-    /* probe for accelerometer device */
-    if(accelerometer_init() != WICED_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
-
-    /* Initialize the AP for receiving Wi-Fi credentials if needed */
-    if(acn_app_init() != WICED_SUCCESS)
-    {
-        return WICED_ERROR;
-    }
-
-    return WICED_SUCCESS;
-}
-
 /* Callback function for gateway software updates */
 int gateway_software_update_cb(const char *url)
 {
